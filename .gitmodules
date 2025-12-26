@@ -1,0 +1,6 @@
+[submodule "mujoco"]
+	path = mujoco
+	url = https://github.com/google-deepmind/mujoco.git
+[submodule "mujoco_menagerie"]
+	path = mujoco_menagerie
+	url = https://github.com/google-deepmind/mujoco_menagerie.git

@@ -1,0 +1,11 @@
+build/
+.vscode/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+.env
+
+.claude
+CLAUDE.md
+AGENTS.md
