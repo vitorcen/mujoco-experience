@@ -170,6 +170,12 @@ if ! check_import "diffusers"; then
     run_pip install -U diffusers
 fi
 
+# PyQuaternion (for DeepMimic)
+if ! check_import "pyquaternion"; then
+    echo "⚠️  'pyquaternion' not found. Installing..."
+    run_pip install pyquaternion
+fi
+
 echo "---------------------------------------"
 
 # 3. Check System Dependencies (Optional)
@@ -189,6 +195,51 @@ else
     echo "⚠️  'ffmpeg' not found. Recommended for video rendering."
     echo "   Install via: sudo apt-get install ffmpeg"
 fi
+
+if ! ldconfig -p | grep -q libOSMesa; then
+     echo "⚠️  'libOSMesa' not found. Recommended for software rendering (headless)."
+     echo "   Install via: sudo apt-get install libosmesa6 libosmesa6-dev"
+fi
+
+if ! ldconfig -p | grep -q libglapi; then
+     echo "⚠️  'libgl1-mesa-dri' (Mesa drivers) might be missing."
+     echo "   Install via: sudo apt-get install libgl1-mesa-dri libglx-mesa0 mesa-utils"
+fi
+
+echo "---------------------------------------"
+echo "🖥️  Checking MuJoCo OpenGL backends (GLX/EGL/OSMesa)..."
+
+# 说明：
+# - 你遇到的 `Xlib: extension "NV-GLX" missing` 属于 GLX/显示环境问题，会导致 mujoco.viewer 无法启动。
+# - `MUJOCO_GL=osmesa` 需要系统里有 libOSMesa；否则会在 import 阶段报错。
+# - `MUJOCO_GL=egl` 通常更适合无显示环境/服务器做离屏渲染（录视频）。
+
+if [ "$USE_CONDA_RUN" = true ]; then
+    conda run -n $TARGET_ENV python - <<'PY'
+import ctypes.util
+print("OSMesa ->", ctypes.util.find_library("OSMesa"))
+print("EGL    ->", ctypes.util.find_library("EGL"))
+print("GLX    ->", ctypes.util.find_library("GLX"))
+PY
+else
+    python - <<'PY'
+import ctypes.util
+print("OSMesa ->", ctypes.util.find_library("OSMesa"))
+print("EGL    ->", ctypes.util.find_library("EGL"))
+print("GLX    ->", ctypes.util.find_library("GLX"))
+PY
+fi
+
+echo ""
+echo "如果你需要在无桌面环境渲染/录视频，推荐 EGL："
+echo "  MUJOCO_GL=egl python scripts/go2_terrain_demo.py --headless --record out.mp4"
+echo ""
+echo "如果你一定要用 OSMesa（软件渲染），需要系统安装 libOSMesa："
+echo "  sudo apt-get update && sudo apt-get install -y libosmesa6 libosmesa6-dev"
+echo ""
+echo "如果你要在桌面开 viewer，但遇到 GLX 问题，可尝试安装 Mesa GLX（软件 GLX）："
+echo "  sudo apt-get update && sudo apt-get install -y libgl1-mesa-dri libglx-mesa0 mesa-utils"
+echo "  __GLX_VENDOR_LIBRARY_NAME=mesa LIBGL_ALWAYS_SOFTWARE=1 python scripts/go2_terrain_demo.py"
 
 echo "---------------------------------------"
 echo "🎉 Setup complete!"
