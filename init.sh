@@ -79,9 +79,9 @@ echo "📦 Checking Python dependencies..."
 # Helper to run pip in the correct environment
 run_pip() {
     if [ "$USE_CONDA_RUN" = true ]; then
-        conda run -n $TARGET_ENV pip "$@"
+        conda run -n $TARGET_ENV python -m pip "$@"
     else
-        pip "$@"
+        python -m pip "$@"
     fi
 }
 
@@ -143,12 +143,31 @@ fi
 # Transformers & Pillow & Torch (for VLA Demo)
 if ! check_import "torch"; then
      echo "⚠️  'torch' not found. Installing..."
-     run_pip install torch torchvision torchaudio
+     run_pip install -U torch torchvision torchaudio
 fi
 
-if ! check_import "transformers"; then
-    echo "⚠️  'transformers' not found. Installing..."
-    run_pip install transformers pillow
+echo "📦 Checking VLA (OpenVLA) dependencies..."
+# OpenVLA 对部分依赖版本有硬性要求，尤其是 timm：
+# - timm 必须满足 >=0.9.10 且 <1.0.0（timm 1.x 会直接报错）
+# 同时，OpenVLA 的 remote-code 对 transformers 的新版本也可能不兼容。
+# 为了“能跑起来”，这里固定到一个已知更稳的组合。
+
+echo "🔧 Ensuring compatible versions: timm>=0.9.10,<1.0.0 ; transformers==4.40.1 ; tokenizers==0.19.1"
+run_pip install -U \
+  "timm>=0.9.10,<1.0.0" \
+  "transformers==4.40.1" \
+  "tokenizers==0.19.1" \
+  "accelerate>=0.26.0" \
+  "protobuf" \
+  "sentencepiece" \
+  "pillow"
+
+# bitsandbytes：用于 4-bit 量化（可选，但建议安装）
+run_pip install -U "bitsandbytes>=0.43.0"
+
+if ! check_import "diffusers"; then
+    echo "⚠️  'diffusers' not found. Installing..."
+    run_pip install -U diffusers
 fi
 
 echo "---------------------------------------"

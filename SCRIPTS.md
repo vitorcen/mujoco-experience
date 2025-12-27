@@ -15,8 +15,11 @@
 
 ## 目录索引
 
-1.  **[panda_ik_demo.py](#1-franka-panda-抓取演示-ik-control)**: 🔥 **(新)** 演示使用逆运动学 (IK) 控制 Panda 机械臂抓取桌子上的物体。
-2.  **[vla_inference_demo.py](#2-vla-视觉-语言-动作模型演示)**: 演示 VLA 模型与 MuJoCo 的集成。
+1.  **[quadruped_vla_demo.py](#1-四足机器人-vla-导航演示)**: 🔥 **(创新)** 演示使用 OpenVLA 视觉模型指挥 Unitree Go2 机器狗走向红球（跨形态控制）。
+2.  **[humanoid_act_demo.py](#2-人形机器人-act-演示)**: 🔥 演示 ACT (Action Chunking with Transformers) 风格的策略控制 Unitree G1 人形机器人。
+3.  **[humanoid_diffusion_demo.py](#3-人形机器人-diffusion-policy-演示)**: 🔥 演示 Diffusion Policy 风格的策略控制 Unitree G1。
+4.  **[panda_ik_demo.py](#4-franka-panda-抓取演示-ik-control)**: 🔥 演示使用逆运动学 (IK) 控制 Panda 机械臂抓取桌子上的物体。
+5.  **[vla_inference_demo.py](#5-vla-机械臂推理演示)**: 演示 OpenVLA 控制机械臂的完整流程。
 3.  **[hello_mujoco.py](#3-hello-mujoco-基础步进)**: 最简 MuJoCo 仿真循环。
 4.  **[spot_demo.py](#4-boston-dynamics-spot-控制)**: 波士顿动力 Spot 机器狗控制。
 5.  **[cassie_demo.py](#5-agility-robotics-cassie-控制)**: Cassie 双足机器人控制。
@@ -27,7 +30,49 @@
 
 ---
 
-## 1. Franka Panda 抓取演示 (IK Control)
+## 1. 四足机器人 VLA 导航演示
+
+**脚本**: `scripts/quadruped_vla_demo.py`
+
+🔥 **跨形态控制演示**：这是一个创新的 Demo，展示如何将针对机械臂训练的 VLA 模型（OpenVLA）用于指挥四足机器人（Unitree Go2）。
+*   **原理**：将 OpenVLA 输出的手臂动作向量（Delta X, Delta Y）重映射为机器狗的（前进速度, 转向速度）。
+*   **场景**：机器狗面前有一个红球，VLA 接收图像指令 "Walk to the red ball"，输出动作驱动机器狗靠近。
+*   **底层控制**：内置了一个简易的运动学步态生成器 (Kinematic Gait Generator)，将速度指令转化为 12 个关节的动作。
+
+**运行方式**:
+```bash
+python scripts/quadruped_vla_demo.py
+```
+
+---
+
+## 2. 人形机器人 ACT 演示
+
+**脚本**: `scripts/humanoid_act_demo.py`
+
+演示 **ACT (Action Chunking with Transformers)** 策略在 Unitree G1 人形机器人上的应用。ACT 的核心思想是一次推理预测未来的一个动作块（Action Chunk），然后按顺序执行，并利用时间集成（Temporal Ensembling）来平滑动作。此脚本模拟了这一过程。
+
+**运行方式**:
+```bash
+python scripts/humanoid_act_demo.py
+```
+
+---
+
+## 3. 人形机器人 Diffusion Policy 演示
+
+**脚本**: `scripts/humanoid_diffusion_demo.py`
+
+演示 **Diffusion Policy** 在 Unitree G1 上的应用。Diffusion Policy 利用扩散模型生成平滑且多模态的动作序列。此脚本模拟了生成平滑全身动作的过程。
+
+**运行方式**:
+```bash
+python scripts/humanoid_diffusion_demo.py
+```
+
+---
+
+## 4. Franka Panda 抓取演示 (IK Control)
 
 **脚本**: `scripts/panda_ik_demo.py`
 
