@@ -176,6 +176,18 @@ if ! check_import "pyquaternion"; then
     run_pip install pyquaternion
 fi
 
+# Jupyter & IPython Kernel (for .ipynb notebooks)
+echo "📓 Installing Jupyter & IPython Kernel..."
+run_pip install jupyter ipykernel
+
+# Configure Jupyter Kernel
+echo "🔗 Registering Jupyter Kernel..."
+if [ "$USE_CONDA_RUN" = true ]; then
+    conda run -n $TARGET_ENV python -m ipykernel install --user --name=$TARGET_ENV --display-name "Python ($TARGET_ENV)" > /dev/null 2>&1 || true
+else
+    python -m ipykernel install --user --name=$TARGET_ENV --display-name "Python ($TARGET_ENV)" > /dev/null 2>&1 || true
+fi
+
 echo "---------------------------------------"
 
 # 3. Check System Dependencies (Optional)

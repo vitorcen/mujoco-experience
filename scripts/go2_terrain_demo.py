@@ -23,8 +23,12 @@ class SimpleQuadrupedController:
         self.phase = 0.0
         # Go2 默认关节角 (站立)
         # FR, FL, RR, RL
-        self.default_angle = np.array([0.0, 0.8, -1.6] * 4) 
-        
+        self.default_angle = np.array([0.0, 0.8, -1.6] * 4)
+
+        # 趴下姿态 (用于起立初始化)
+        # 参考官方 stand_go2.py: [0.04, 1.22, -2.44]
+        self.prone_angle = np.array([0.0, 1.22, -2.44] * 4)
+
     def update(self, vx, wz, dt):
         self.phase += dt * GAIT_FREQ * 2 * np.pi
         
@@ -155,30 +159,54 @@ def main():
     # 地形有些 box 在 z=0.5 左右
     # 找到 freejoint (通常 qpos 0-6)
     # 看看 scene_terrain.xml 里有没有 start pos，或者我们手动设
-    if model.nq >= 7:
-        # qpos[0:3] = pos
-        data.qpos[0] = 0.0 # x
-        data.qpos[1] = 0.0 # y
-        data.qpos[2] = 0.6 # z (抬高一点)
-    
+    if model.nq >= 19:
+        # 1. 设置基座位置 (x, y, z)
+        data.qpos[0] = 0.0
+        data.qpos[1] = 0.0
+        data.qpos[2] = 0.35 # z (降低高度，准备从趴下开始起立)
+
+        # 2. 设置关节初始角度为“趴下”姿态
+        # 这样机器人会先趴在地上，然后慢慢站起来，这是最稳的初始化方式
+        data.qpos[7:19] = controller.prone_angle
+
     mujoco.mj_forward(model, data)
 
     print("Starting simulation... (Go2 walking on rough terrain)")
-    
+
     def step_control_once():
         # 控制
         dt = model.opt.timestep
+        t = data.time
 
-        # 简单的一直往前走（开环）
-        vx = 0.5
-        wz = 0.0
+        # --- Soft Start (平滑起立) ---
+        # 模仿官方 stand_go2.py 的逻辑：从趴下姿态插值过渡到站立姿态
+        warmup_time = 1.5
+        target_kp = 40
 
-        targets = controller.update(vx, wz, dt)
+        if t < warmup_time:
+            vx = 0.0
+            wz = 0.0
+
+            # 计算插值比例 (0.0 -> 1.0)
+            ratio = t / warmup_time
+            # 使用更平滑的 S 曲线 (可选，这里用线性足够稳)
+
+            # 线性插值：Prone -> Stand
+            targets = (1 - ratio) * controller.prone_angle + ratio * controller.default_angle
+
+            # 在起立过程中，KP 可以直接给足，或者稍微 ramp 一下
+            kp = target_kp * (0.5 + 0.5 * ratio) # 20 -> 40
+        else:
+            # 缓冲结束后，开始行走
+            vx = 0.5
+            wz = 0.0
+            targets = controller.update(vx, wz, dt)
+            kp = target_kp
+
+        kd = 2
 
         # 应用 PD (Go2 12 dof)
         # actuator 顺序通常是 FR(3), FL(3), RR(3), RL(3)
-        kp = 40
-        kd = 2
 
         # 注意：unitree_mujoco 的 go2.xml actuator 定义顺序可能不同
         # 通常是 FR_hip, FR_thigh, FR_calf, FL_...

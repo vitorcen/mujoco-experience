@@ -10,3 +10,9 @@
 [submodule "DeepMimic_mujoco"]
 	path = DeepMimic_mujoco
 	url = https://github.com/mingfeisun/DeepMimic_mujoco.git
+[submodule "unitree_sdk2_python"]
+	path = unitree_sdk2_python
+	url = https://github.com/unitreerobotics/unitree_sdk2_python.git
+[submodule "unitree_rl_gym"]
+	path = unitree_rl_gym
+	url = https://github.com/unitreerobotics/unitree_rl_gym.git

@@ -19,12 +19,19 @@ mujoco-experience/
 │   ├── simulate/              # 图形化仿真器源码
 │   └── python/                # Python 绑定
 ├── mujoco_menagerie/          # 第三方机器人模型库（submodule）
+├── unitree_mujoco/            # Unitree 机器人仿真器（submodule）
+│   ├── simulate/              # C++ 仿真器源码
+│   ├── example/               # 示例程序（cpp/python/ros2）
+│   ├── unitree_robots/        # Unitree 机器人 MJCF 模型
+│   └── readme_zh.md           # 中文文档
 ├── scripts/                   # Python 演示与控制脚本
 │   └── vla_inference_demo.py  # VLA 模型推理演示
 ├── DEMO.md                    # C++ 仿真器运行指南 (Simulate)
 ├── SCRIPTS.md                 # Python 脚本运行指南 (Scripts)
+├── UNITREE.md                 # Unitree 机器人仿真指南
 ├── build.sh                   # 一键构建脚本
 ├── init.sh                    # 环境初始化脚本
+├── init-unitree.sh            # Unitree 仿真器安装脚本
 └── README.md                  # 本文档
 ```
 
@@ -97,7 +104,27 @@ git submodule update --init mujoco_menagerie
 
 👉 **更多 XML 模型运行指令请查看 [演示指南 (DEMO.md)](./DEMO.md)**
 
-### 2. 运行 Python 控制脚本
+### 2. Unitree 机器人仿真器 (C++ Based)
+
+基于 Unitree SDK2 的完整仿真环境，支持 Go2, B2, H1, G1 等多款机器人，提供 sim-to-real 开发流程。
+
+**快速安装：**
+```bash
+./init-unitree.sh
+```
+
+**启动仿真示例：**
+```bash
+# 启动仿真器
+./unitree_mujoco/simulate/build/unitree_mujoco -r go2 -s scene_terrain.xml
+
+# 另开终端运行控制程序
+./unitree_mujoco/example/cpp/build/stand_go2
+```
+
+👉 **详细安装、控制策略、ROS2 集成、常见问题等请查看 [Unitree 仿真指南 (UNITREE.md)](./UNITREE.md)**
+
+### 3. 运行 Python 控制脚本
 
 使用 Python API 进行控制和推理。
 
