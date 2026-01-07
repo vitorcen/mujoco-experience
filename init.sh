@@ -152,10 +152,10 @@ echo "📦 Checking VLA (OpenVLA) dependencies..."
 # 同时，OpenVLA 的 remote-code 对 transformers 的新版本也可能不兼容。
 # 为了“能跑起来”，这里固定到一个已知更稳的组合。
 
-echo "🔧 Ensuring compatible versions: timm>=0.9.10,<1.0.0 ; transformers==4.40.1 ; tokenizers==0.19.1"
+echo "🔧 Ensuring compatible versions: timm>=0.9.10,<1.0.0 ; transformers==4.44.2 ; tokenizers==0.19.1"
 run_pip install -U \
   "timm>=0.9.10,<1.0.0" \
-  "transformers==4.40.1" \
+  "transformers==4.44.2" \
   "tokenizers==0.19.1" \
   "accelerate>=0.26.0" \
   "protobuf" \
@@ -170,6 +170,12 @@ if ! check_import "diffusers"; then
     run_pip install -U diffusers
 fi
 
+# SOCKS proxy support for httpx/anthropic
+if ! check_import "socksio"; then
+    echo "⚠️  'socksio' not found. Installing..."
+    run_pip install -U socksio
+fi
+
 # PyQuaternion (for DeepMimic)
 if ! check_import "pyquaternion"; then
     echo "⚠️  'pyquaternion' not found. Installing..."
@@ -179,6 +185,21 @@ fi
 # Jupyter & IPython Kernel (for .ipynb notebooks)
 echo "📓 Installing Jupyter & IPython Kernel..."
 run_pip install jupyter ipykernel
+
+# Install uv (for uvx command used in MCP)
+echo "🚀 Installing uv (for uvx command)..."
+run_pip install uv
+
+# Install Agent dependencies (anthropic, mcp)
+if ! check_import "anthropic"; then
+    echo "⚠️  'anthropic' not found. Installing..."
+    run_pip install anthropic
+fi
+
+if ! check_import "mcp"; then
+    echo "⚠️  'mcp' not found. Installing..."
+    run_pip install mcp
+fi
 
 # Configure Jupyter Kernel
 echo "🔗 Registering Jupyter Kernel..."
