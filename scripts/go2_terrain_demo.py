@@ -31,34 +31,41 @@ class SimpleQuadrupedController:
 
     def update(self, vx, wz, dt):
         self.phase += dt * GAIT_FREQ * 2 * np.pi
-        
-        # 抬腿幅度 (崎岖地形需要抬高一点)
-        amp_swing = 0.2 + 0.3 * abs(vx) # 基础抬腿 + 速度增益
-        
-        # 简单的相位机: 对角步态
-        offsets = np.array([0, np.pi, np.pi, 0])
-        
+
+        # Lift amplitude — modest, terrain wants ~0.25 rad knee bend at peak.
+        amp_lift = 0.25 + 0.20 * abs(vx)
+        # Forward sweep amplitude on the hip-pitch (thigh) joint. Scaled by vx.
+        stride = 0.25 * vx
+        # Yaw command: differential stride between left/right rows.
+        yaw_split = 0.15 * wz
+
+        # Trot pairing: (FR, RL) swing while (FL, RR) stance.
+        # Actuator order in go2.xml is FR, FL, RR, RL.
+        offsets = np.array([0.0, np.pi, np.pi, 0.0])
+        # Per-leg stride sign: front legs reach forward, rear legs push back.
+        stride_sign = np.array([+1.0, +1.0, -1.0, -1.0])
+        # Yaw sign: right side (FR, RR) vs left side (FL, RL).
+        yaw_sign = np.array([+1.0, -1.0, +1.0, -1.0])
+
         targets = self.default_angle.copy()
-        
+
         for i in range(4):
             idx = i * 3
             p = self.phase + offsets[i]
-            
-            # 髋部摆动 (前进/转向)
-            targets[idx] += 0.0 # 简化，暂不处理 Hip Roll/Yaw 复杂耦合
-            
-            # 腿部屈伸 (Pitch)
-            # sin > 0 时抬腿 (屈膝 + 屈髋)
             s = np.sin(p)
-            if s > 0:
-                # 摆动相：抬腿
-                targets[idx+1] += s * amp_swing       # Thigh
-                targets[idx+2] += s * amp_swing * 1.5 # Calf (多屈一点)
-            else:
-                # 支撑相：稍微用力蹬地 (伸展)
-                targets[idx+1] += s * 0.05
-                targets[idx+2] += s * 0.05
-                
+            c = np.cos(p)
+
+            # Hip pitch (thigh): cosine sweeps the foot fore/aft for propulsion;
+            # during swing (s>0) also tuck the leg up by *decreasing* thigh angle
+            # (Go2 convention: thigh ~0.8 standing, smaller = leg lifted).
+            lift = max(s, 0.0) * amp_lift
+            targets[idx + 1] -= c * (stride * stride_sign[i] + yaw_split * yaw_sign[i])
+            targets[idx + 1] -= lift
+
+            # Knee (calf): default ~-1.6 (bent). Bending more = more negative.
+            # During swing we want extra knee flex; during stance keep it stiff.
+            targets[idx + 2] -= lift * 1.5
+
         return targets
 
 def load_scene_with_vfs():
@@ -179,31 +186,30 @@ def main():
         t = data.time
 
         # --- Soft Start (平滑起立) ---
-        # 模仿官方 stand_go2.py 的逻辑：从趴下姿态插值过渡到站立姿态
-        warmup_time = 1.5
-        target_kp = 40
+        # 模仿官方 stand_go2.py 的逻辑：从趴下姿态插值过渡到站立姿态。
+        # 给一段额外的纯站立稳态时间，再起步走。
+        warmup_time = 2.0
+        stand_hold = 1.0  # seconds of standing still before walking
+        target_kp = 80.0
 
         if t < warmup_time:
             vx = 0.0
             wz = 0.0
-
-            # 计算插值比例 (0.0 -> 1.0)
             ratio = t / warmup_time
-            # 使用更平滑的 S 曲线 (可选，这里用线性足够稳)
-
-            # 线性插值：Prone -> Stand
+            # Smoothstep for gentler take-off.
+            ratio = ratio * ratio * (3.0 - 2.0 * ratio)
             targets = (1 - ratio) * controller.prone_angle + ratio * controller.default_angle
-
-            # 在起立过程中，KP 可以直接给足，或者稍微 ramp 一下
-            kp = target_kp * (0.5 + 0.5 * ratio) # 20 -> 40
+            kp = target_kp * (0.4 + 0.6 * ratio)
+        elif t < warmup_time + stand_hold:
+            targets = controller.default_angle.copy()
+            kp = target_kp
         else:
-            # 缓冲结束后，开始行走
-            vx = 0.5
+            vx = 0.4
             wz = 0.0
             targets = controller.update(vx, wz, dt)
             kp = target_kp
 
-        kd = 2
+        kd = 4.0
 
         # 应用 PD (Go2 12 dof)
         # actuator 顺序通常是 FR(3), FL(3), RR(3), RL(3)

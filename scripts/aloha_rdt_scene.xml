@@ -1,0 +1,66 @@
+<mujoco model="aloha_rdt_scene">
+  <!-- Bimanual ALOHA setup for RDT-1B demos.
+       We include only aloha.xml (the two ViperX arms) and rebuild the workspace
+       ourselves so the include path is single-level and clean. -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <include file="aloha.xml"/>
+
+  <!-- Viewer opening: 3/4 right-front so both arms + both cubes are in frame with depth. -->
+  <statistic center="0 -0.07 0.08" extent="0.85"/>
+
+  <visual>
+    <!-- Cumulative lighting tuned to stay under 1.0 on bright surfaces so the
+         white walls / table don't blow out. -->
+    <headlight diffuse="0.18 0.18 0.18" ambient="0.15 0.15 0.15" specular="0.0 0.0 0.0"/>
+    <global azimuth="115" elevation="-28"/>
+  </visual>
+
+  <asset>
+    <!-- Slightly warm off-grey background, dimmer; reads as overcast room. -->
+    <texture type="skybox" builtin="flat" rgb1="0.55 0.55 0.56" rgb2="0.55 0.55 0.56" width="256" height="256"/>
+    <!-- Tabletop deliberately mid-grey so even with all lights summed it stays ~0.6. -->
+    <material name="table_mat" rgba="0.45 0.42 0.38 1" specular="0.0" shininess="0.0"/>
+    <material name="floor_mat" rgba="0.42 0.40 0.38 1" specular="0.0"/>
+  </asset>
+
+  <worldbody>
+    <!-- One soft overhead + one fill. Cumulative diffuse capped near 0.5 on top surfaces. -->
+    <light pos="0 0 1.6" dir="0 0 -1" directional="true" diffuse="0.22 0.22 0.20"/>
+    <light pos="0.5 0.5 1.0" dir="-0.3 -0.3 -0.8" diffuse="0.08 0.08 0.07"/>
+
+    <geom name="floor" type="plane" size="3 3 0.05" pos="0 0 -0.75" material="floor_mat"/>
+
+    <!-- Tabletop, top surface at z=0 to match ALOHA's arm mount origin -->
+    <body name="rdt_table" pos="0 -0.05 -0.02">
+      <geom type="box" size="0.45 0.35 0.02" material="table_mat"/>
+    </body>
+
+    <!-- Two graspable cubes for bimanual handover task -->
+    <body name="red_cube" pos="-0.15 -0.10 0.025">
+      <freejoint/>
+      <geom type="box" size="0.018 0.018 0.018" rgba="0.88 0.16 0.13 1" mass="0.05"/>
+    </body>
+
+    <body name="blue_cube" pos="0.15 -0.10 0.025">
+      <freejoint/>
+      <geom type="box" size="0.018 0.018 0.018" rgba="0.16 0.36 0.78 1" mass="0.05"/>
+    </body>
+
+    <!-- 3rd-person overhead camera mimicking ALOHA's stock overhead view, fed to RDT -->
+    <camera name="vla_view" pos="0 -0.50 0.55" mode="targetbody" target="rdt_table" fovy="55"/>
+    <!-- A wrist-style top-down secondary view (RDT-1B can take multiple cameras) -->
+    <camera name="vla_wrist" pos="0 -0.10 0.45" mode="fixed" zaxis="0 0 1" fovy="60"/>
+  </worldbody>
+
+  <keyframe>
+    <!-- nq = 16 arm + 2*7 free = 30; nu = 14. -->
+    <key name="rdt_home"
+         qpos="0 -0.96 1.16 0 -0.3 0 0.025 -0.025
+               0 -0.96 1.16 0 -0.3 0 0.025 -0.025
+               -0.15 -0.10 0.025 1 0 0 0
+                0.15 -0.10 0.025 1 0 0 0"
+         ctrl="0 -0.96 1.16 0 -0.3 0 0.025
+               0 -0.96 1.16 0 -0.3 0 0.025"/>
+  </keyframe>
+</mujoco>

@@ -1,0 +1,84 @@
+<mujoco model="widowx_bridge_scene">
+  <!-- Visual + training-distribution match for OpenVLA's bridge_orig unnorm key.
+       Robot: WidowX 250s (Trossen wx250s) - same physical model used in BridgeData V2.
+       Surface: wooden tabletop. Walls/lighting: warm indoor.
+       Objects: small rigid items that show up frequently in Bridge V2 trajectories. -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <include file="../mujoco_menagerie/trossen_wx250s/wx250s.xml"/>
+
+  <!-- Viewer opening pose: aimed at the workspace (table center ≈ 0.25,0,0.06)
+       from a 3/4 front-right perspective so the whole arm + table + objects are framed. -->
+  <statistic center="0.22 0 0.10" extent="0.85"/>
+
+  <visual>
+    <headlight diffuse="0.35 0.34 0.32" ambient="0.35 0.34 0.32" specular="0.05 0.05 0.05"/>
+    <rgba haze="0.86 0.83 0.78 1"/>
+    <global azimuth="140" elevation="-25"/>
+  </visual>
+
+  <asset>
+    <!-- Warm off-white skybox approximates indoor walls bleeding through -->
+    <texture type="skybox" builtin="flat" rgb1="0.88 0.85 0.80" rgb2="0.88 0.85 0.80" width="256" height="256"/>
+
+    <!-- Wood grain on tabletop: checker base + random marks to break uniformity -->
+    <texture name="wood_tex" type="2d" builtin="checker"
+             rgb1="0.74 0.56 0.33" rgb2="0.66 0.48 0.27"
+             mark="random" markrgb="0.55 0.38 0.20"
+             width="512" height="512" random="0.4"/>
+    <material name="wood_mat" texture="wood_tex" texrepeat="2 2"
+              specular="0.15" shininess="0.25" reflectance="0.05"/>
+
+    <!-- Painted walls + floor (matte) -->
+    <material name="wall_mat" rgba="0.93 0.90 0.85 1" specular="0.05" shininess="0.1"/>
+    <material name="floor_mat" rgba="0.78 0.75 0.70 1" specular="0.05" shininess="0.1"/>
+  </asset>
+
+  <worldbody>
+    <!-- Warm overhead + soft side fill -->
+    <light pos="0.4 0.0 1.6" dir="0 0 -1" directional="true"
+           diffuse="0.55 0.50 0.45" specular="0.05 0.05 0.05"/>
+    <light pos="0.7 0.6 1.0" dir="-0.35 -0.45 -0.8"
+           diffuse="0.25 0.23 0.20" specular="0.05 0.05 0.05"/>
+
+    <geom name="floor" type="plane" size="3 3 0.05" material="floor_mat"/>
+
+    <!-- Indoor walls so the camera doesn't see infinite sky -->
+    <geom name="wall_back" type="box" pos="1.3 0 0.8"  size="0.02 1.4 0.8"  material="wall_mat"/>
+    <geom name="wall_left" type="box" pos="0.0 1.1 0.8" size="1.3 0.02 0.8"  material="wall_mat"/>
+    <geom name="wall_right" type="box" pos="0.0 -1.1 0.8" size="1.3 0.02 0.8" material="wall_mat"/>
+
+    <!-- Wooden tabletop in front of arm; surface at z = 0.04 -->
+    <body name="table" pos="0.32 0 0.02">
+      <geom type="box" size="0.28 0.30 0.02" material="wood_mat"/>
+    </body>
+
+    <!-- Bridge-V2-style manipulables. Sizes chosen to fit the WidowX gripper's ~22-37mm span. -->
+    <body name="red_block" pos="0.28 0.04 0.07">
+      <joint type="free"/>
+      <geom type="box" size="0.018 0.018 0.018" rgba="0.85 0.14 0.11 1" mass="0.05"/>
+    </body>
+
+    <body name="yellow_corn" pos="0.34 0.10 0.07">
+      <joint type="free"/>
+      <geom type="capsule" size="0.014 0.035" euler="0 1.5708 0" rgba="0.95 0.78 0.18 1" mass="0.04"/>
+    </body>
+
+    <body name="blue_cup" pos="0.26 -0.08 0.07">
+      <joint type="free"/>
+      <geom type="cylinder" size="0.022 0.025" rgba="0.18 0.42 0.78 1" mass="0.06"/>
+    </body>
+
+    <!-- Bridge V2 3rd-person camera: front-right of robot, slightly above, looking at workspace. -->
+    <camera name="vla_view" pos="0.72 -0.32 0.40" mode="targetbody" target="table" fovy="55"/>
+  </worldbody>
+
+  <keyframe>
+    <!-- nq = 6 arm + 2 finger (coupled) + 3 free joints * 7 = 29.
+         nu = 6 arm + 1 gripper = 7.
+         Object positions repeated here so reset puts them back on the table. -->
+    <key name="bridge_home"
+         qpos="0 -0.96 1.16 0 -0.3 0  0.030 -0.030  0.28 0.04 0.07 1 0 0 0  0.34 0.10 0.07 1 0 0 0  0.26 -0.08 0.07 1 0 0 0"
+         ctrl="0 -0.96 1.16 0 -0.3 0  0.030"/>
+  </keyframe>
+</mujoco>

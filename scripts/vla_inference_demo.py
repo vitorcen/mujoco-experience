@@ -9,10 +9,10 @@ import re
 # 配置区域
 # ===========================
 
-# 使用 OpenVLA-7B (4-bit 量化版以节省显存)
+# 使用 OpenVLA-7B (全精度 fp16，显存约 ~15GB)
 # 注意: 首次运行会自动下载模型 (需 ~5GB 流量)
-MODEL_ID = "openvla/openvla-7b" 
-LOAD_IN_4BIT = True
+MODEL_ID = "openvla/openvla-7b"
+LOAD_IN_4BIT = False
 
 # 场景配置 (复用 Panda 的场景)
 SCENE_XML_PATH = "scripts/panda_manipulation.xml"
@@ -58,10 +58,12 @@ class OpenVLAController:
                     bnb_4bit_compute_dtype=torch.bfloat16
                 )
                 print(f"Loading {model_id} with 4-bit quantization...")
+                # bnb 4-bit/8-bit 模型必须用 device_map 由 accelerate 自行放置，
+                # 之后不能再调 .to()；compute dtype 由 quantization_config 指定。
                 self.model = _from_pretrained_eager(
                     pretrained_model_name_or_path=model_id,
                     quantization_config=quantization_config,
-                    torch_dtype=torch.bfloat16,
+                    device_map="auto",
                     low_cpu_mem_usage=True,
                     trust_remote_code=True,
                 )
@@ -184,6 +186,12 @@ def main():
 
     # 初始化渲染器 (224x224 是 OpenVLA 的标准输入分辨率)
     renderer = mujoco.Renderer(model, height=224, width=224)
+    # Bridge V2 style fixed 3rd-person view; falls back to free camera if not defined.
+    vla_camera = "vla_view"
+    try:
+        _ = model.camera(vla_camera).id
+    except Exception:
+        vla_camera = -1
     
     # 2. 加载 VLA 模型
     vla = OpenVLAController(MODEL_ID, load_in_4bit=LOAD_IN_4BIT)
@@ -203,9 +211,17 @@ def main():
     jac = np.zeros((6, model.nv))
     error = np.zeros(6)
     
-    # 复位
-    if model.nkey > 0:
-        mujoco.mj_resetDataKeyframe(model, data, 0)
+    # 复位：优先用我们在 panda_manipulation.xml 中定义的 'grasp_home'，
+    # 因为 panda.xml 自带的 'home' 关键帧只覆盖 9 维 qpos，会把 cube 的 free joint 补零，
+    # 导致红方块被瞬移到世界原点（即 Panda 底座）。
+    reset_key = -1
+    try:
+        reset_key = model.key("grasp_home").id
+    except Exception:
+        if model.nkey > 0:
+            reset_key = 0
+    if reset_key >= 0:
+        mujoco.mj_resetDataKeyframe(model, data, reset_key)
         mujoco.mj_forward(model, data)
         if ee_kind == "site":
             target_pos = data.site_xpos[ee_id].copy()
@@ -227,8 +243,8 @@ def main():
             if now - last_vla_time > CONTROL_DT:
                 last_vla_time = now
                 
-                # 1. 渲染图像
-                renderer.update_scene(data)
+                # 1. 渲染图像（用固定 3rd-person 相机，保持帧间一致）
+                renderer.update_scene(data, camera=vla_camera)
                 rgb = renderer.render()
                 image_pil = Image.fromarray(rgb)
                 
