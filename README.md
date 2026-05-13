@@ -19,6 +19,7 @@ Google DeepMind MuJoCo 物理引擎学习与实践项目。MuJoCo (Multi-Joint d
 | [`SCRIPTS.ipynb`](./SCRIPTS.ipynb) | Python 控制脚本：VLA、ACT、Diffusion 策略与基础控制     |
 | [`UNITREE.ipynb`](./UNITREE.ipynb) | Unitree 机器人 (Go2/B2/H1/G1) sim-to-real 仿真流程      |
 | [`PI05.ipynb`](./PI05.ipynb)       | Pi05 VLA 模型推理演示（`pi05_minimax_vla` 子模块）    |
+| [`SCENE.ipynb`](./SCENE.ipynb)     | 一键运行的 MuJoCo 场景库（dm_control / robosuite / LIBERO …）调研 |
 
 > 在 VS Code / JupyterLab 中打开任一 notebook，按顺序执行 cell 即可。
 
