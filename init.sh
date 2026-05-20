@@ -85,13 +85,16 @@ run_pip() {
     fi
 }
 
-# Helper to check import in the correct environment
+# Helper to check import in the correct environment.
+# IMPORTANT: cd to /tmp first so local directories in the project root
+# (e.g. ./mujoco from the submodule) are not picked up as namespace packages
+# and don't shadow real pip-installed packages.
 check_import() {
     local module=$1
     if [ "$USE_CONDA_RUN" = true ]; then
-        conda run -n $TARGET_ENV python -c "import $module" 2>/dev/null
+        (cd /tmp && conda run -n $TARGET_ENV python -c "import $module") 2>/dev/null
     else
-        python -c "import $module" 2>/dev/null
+        (cd /tmp && python -c "import $module") 2>/dev/null
     fi
     return $?
 }

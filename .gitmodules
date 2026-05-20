@@ -19,3 +19,6 @@
 [submodule "pi05_minimax_vla"]
 	path = pi05_minimax_vla
 	url = git@github.com:vitorcen/minimax_vla.git
+[submodule "KungfuBot"]
+	path = KungfuBot
+	url = https://github.com/TeleHuman/PBHC.git

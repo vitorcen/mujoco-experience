@@ -2,19 +2,53 @@
 
 Google DeepMind MuJoCo 物理引擎学习与实践项目。MuJoCo (Multi-Joint dynamics with Contact) 是一个高性能的物理仿真引擎，广泛用于机器人学、生物力学和机器学习研究。
 
+_Learning & practice repo for Google DeepMind's MuJoCo physics engine — robotics, biomechanics, ML research._
+
+---
+
+## ✨ KungfuBot — G1 功夫动作 (Kung-fu Motions)
+
+_KungfuBot G1 kung-fu policies & reference motions in MuJoCo_
+
+把 [TeleHuman/PBHC](https://github.com/TeleHuman/PBHC) (KungfuBot) 的预训练 RL 策略接入本仓库，在 **MuJoCo** 中驱动 **Unitree G1** 完成中国功夫动作。
+_Pretrained RL policy from TeleHuman/PBHC drives Unitree G1 through Chinese kung-fu moves in MuJoCo sim2sim._
+
+### 👊 马步出拳 / Horse-stance Punch (预训练策略 / pretrained policy)
+
 <div align="center">
-  <img src="doc/images/g1_29dof_rev.png" alt="Unitree G1 Simulation" width="600"/>
-  <p><i>Unitree G1 人形机器人在 MuJoCo 中的仿真</i></p>
+  <img src="doc/images/kungfubot.jpg" alt="KungfuBot G1 Horse-stance Punch" width="600"/>
 </div>
+
+双脚开立重心下沉成马步，右臂直拳前击带动躯干扭转、左臂收于腰侧蓄力 —— 标准的传统功夫发力姿态。RL 策略在线推理 ONNX，让 G1 在 MuJoCo 物理仿真里复现这个动作。
+_Feet wide and weight lowered into horse stance, right arm extending into a straight punch with torso rotation while the left fist retracts to the waist for counter-force. The ONNX policy runs online in MuJoCo to reproduce this move on the physical G1 model._
+
+### 🐲 李小龙姿态 / Bruce Lee Pose (参考轨迹 / reference trajectory)
+
+<div align="center">
+  <img src="doc/images/bruce-lee-pose.jpg" alt="KungfuBot G1 Bruce Lee Pose" width="600"/>
+</div>
+
+G1 低身**仆步**：右腿向侧完全伸展贴地、重心全压在左腿上，左臂高扬、右臂横探出手 —— 致敬李小龙经典的「be like water」动态过渡瞬间。该动作只有 SMPL→G1 的重定向参考数据 (`Bruce_Lee_pose.pkl`)，没有预训练策略，所以用 `vis_q_mj.py` 直接播放轨迹（不跑 RL，单纯几何回放）。
+_G1 in a deep Pu Bu (仆步) side-lunge — right leg fully extended along the floor, full body weight on the bent left leg, left arm raised high while the right arm sweeps outward, capturing Bruce Lee's "be like water" transitional readiness. This motion only ships as a SMPL→G1 retargeted reference trajectory (`Bruce_Lee_pose.pkl`); without a trained controller it is played back kinematically via `vis_q_mj.py` rather than physics-stepped under an RL policy._
+
+### 通用信息 / At a glance
+
+- **入口 / Entry point**:📓 [KungfuBot.ipynb](./KungfuBot.ipynb)（一键启动 / one-click MuJoCo preview）
+- **流程 / Pipeline**:SMPL 人体动作 → 重定向到 G1 → IsaacGym 训 RL → 导出 ONNX → MuJoCo sim2sim
+- **预训练 ONNX / Pretrained policies**:`horse_stance_pose ×2`、`horse_stance_punch ×1`（仓库自带，§3 直接调用）
+- **参考动作 / Reference motions only**:`Bruce_Lee_pose` · `Charleston_dance` · `Hooks_punch` · `Roundhouse_kick` · `Side_kick` —— 仅几何回放，没有 RL 控制器
 
 ---
 
 ## 📓 交互式指南 (Notebooks)
 
+_Interactive guides — runnable Jupyter notebooks_
+
 所有运行指南均以 Jupyter Notebook 形式提供，可直接执行命令并查看输出：
 
 | Notebook                          | 说明                                                    |
 | --------------------------------- | ------------------------------------------------------- |
+| [`KungfuBot.ipynb`](./KungfuBot.ipynb) | ⭐ G1 功夫动作 MuJoCo 一键预览（马步出拳/马步姿态 ONNX）/ G1 kung-fu policy preview |
 | [`DEMO.ipynb`](./DEMO.ipynb)       | C++ 仿真器 (`simulate`) 与内置/Menagerie XML 模型演示 |
 | [`SCRIPTS.ipynb`](./SCRIPTS.ipynb) | Python 控制脚本：VLA、ACT、Diffusion 策略与基础控制     |
 | [`UNITREE.ipynb`](./UNITREE.ipynb) | Unitree 机器人 (Go2/B2/H1/G1) sim-to-real 仿真流程      |
