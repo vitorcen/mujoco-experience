@@ -25,3 +25,7 @@
 [submodule "dependencies/robocasa"]
 	path = dependencies/robocasa
 	url = https://github.com/robocasa/robocasa
+[submodule "dependencies/Isaac-GR00T"]
+	path = dependencies/Isaac-GR00T
+	url = https://github.com/robocasa-benchmark/Isaac-GR00T.git
+	branch = main

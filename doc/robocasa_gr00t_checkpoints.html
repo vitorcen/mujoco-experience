@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>RoboCasa × GR00T N1.5 Checkpoint 一览 + N1.7 自训练 GPU 预算</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+         max-width: 980px; margin: 32px auto; padding: 24px;
+         background: #ffffff; color: #1f2328;
+         line-height: 1.6; }
+  html { background: #ffffff; }
+  h1 { border-bottom: 2px solid #1f2328; padding-bottom: 8px; }
+  h2 { margin-top: 2em; border-left: 4px solid #4c8bf5; padding-left: 12px; }
+  h3 { margin-top: 1.6em; color: #4c8bf5; }
+  .tldr { background: #fff8c5; border-left: 4px solid #d4a017;
+          padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+  .tldr-en { color: #57606a; font-style: italic; margin-top: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.95em; }
+  th, td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left;
+           vertical-align: top; }
+  th { background: #f6f8fa; }
+  tr.recommend { background: #dafbe1; }
+  tr.recommend td:first-child::after { content: " ✨"; }
+  code { background: #f6f8fa; padding: 1px 5px; border-radius: 3px;
+         font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.9em; }
+  pre { background: #f6f8fa; padding: 12px; border-radius: 6px; overflow-x: auto; }
+  .note { background: #ddf4ff; border-left: 4px solid #0969da;
+          padding: 10px 14px; margin: 12px 0; border-radius: 4px; }
+  .warn { background: #ffebe9; border-left: 4px solid #cf222e;
+          padding: 10px 14px; margin: 12px 0; border-radius: 4px; }
+  .meta { color: #57606a; font-size: 0.9em; }
+  svg { display: block; margin: 16px auto; }
+  ul { padding-left: 22px; }
+  li { margin: 4px 0; }
+  .en { color: #57606a; font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<h1>RoboCasa × GR00T N1.5 Checkpoint 一览 + N1.7 自训练 GPU 预算</h1>
+<p class="meta">2026-05-28 · Linus 模式 · 配套 <code>RoboCasa.ipynb §0.5 / §2 / §5</code></p>
+
+<div class="tldr">
+<strong>TL;DR</strong>：RoboCasa 官方放出 5 档 GR00T N1.5 checkpoint，差异在 fine-tune 数据范围。<strong>本仓默认用 <code>target_posttraining/atomic_seen/checkpoint-60000</code></strong>，atomic-seen 平均 success rate <strong>68.5%</strong>，是单 7 GB 推理子集里最强的选项。要基于 N1.7 自训类似规模：<strong>仅 post-training ≈ ¥2,400-4,800（H800）/ ¥4,600-9,100（H20）</strong>；从头复刻 pretrain+posttrain ≈ <strong>¥9,600-16,500（H800）/ ¥18,200-32,300（H20）</strong>。
+<div class="tldr-en">RoboCasa ships 5 GR00T N1.5 checkpoints differing by fine-tune subset. We default to <code>target_posttraining/atomic_seen/checkpoint-60000</code> (68.5% atomic-seen SR, 7 GB inference subset). Self-training a comparable N1.7 model: post-training only ≈ ¥2.4-4.8k on H800; full pretrain+posttrain ≈ ¥9.6-16.5k on H800.</div>
+</div>
+
+<h2>1. 五档 Checkpoint 一览 (Five Checkpoints)</h2>
+
+<p>全部位于 HuggingFace <code><a href="https://huggingface.co/robocasa/robocasa365_checkpoints">robocasa/robocasa365_checkpoints</a></code> repo（共 282 GB）。每档完整目录 ~16 GB（含 8.5 GB optimizer.pt 训练 resume 用）；本仓 <strong>只下推理子集 ~7.1 GB</strong>（model-*.safetensors + config + experiment_cfg）。</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Checkpoint 路径</th>
+      <th>训练方式</th>
+      <th>覆盖任务</th>
+      <th>平均 SR</th>
+      <th>本仓推荐</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>multitask_learning/checkpoint-120000</code></td>
+      <td>纯 multitask 训练，所有任务一锅煮</td>
+      <td>全 300 任务（atomic + composite）</td>
+      <td>43.0%</td>
+      <td>通才 baseline</td>
+    </tr>
+    <tr>
+      <td><code>foundation_model_learning/pretraining/checkpoint-80000</code></td>
+      <td>大规模 pretraining（300 任务 + MimicGen 数据）</td>
+      <td>无 fine-tune，靠 generalization</td>
+      <td>41.9%</td>
+      <td>对照组</td>
+    </tr>
+    <tr>
+      <td><code>foundation_model_learning/target_only/atomic_seen/checkpoint-60000</code></td>
+      <td>只在 18 atomic-seen 数据上从头训</td>
+      <td>18 atomic-seen</td>
+      <td>50.6%</td>
+      <td>—</td>
+    </tr>
+    <tr class="recommend">
+      <td><code>foundation_model_learning/target_posttraining/atomic_seen/checkpoint-60000</code></td>
+      <td>Pretrain → 再在 atomic-seen fine-tune</td>
+      <td>18 atomic-seen</td>
+      <td><strong>68.5%</strong></td>
+      <td><strong>默认推荐</strong></td>
+    </tr>
+    <tr>
+      <td><code>foundation_model_learning/target_posttraining/composite_seen/checkpoint-60000</code></td>
+      <td>Pretrain → 再在 composite-seen fine-tune</td>
+      <td>16 composite-seen（长程任务）</td>
+      <td>40.6%</td>
+      <td>想跑长程任务再用</td>
+    </tr>
+    <tr>
+      <td><code>foundation_model_learning/target_posttraining/composite_unseen/checkpoint-60000</code></td>
+      <td>Pretrain → 再在 composite-unseen fine-tune</td>
+      <td>16 composite-unseen</td>
+      <td>42.1%</td>
+      <td>泛化测试用</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+<strong>关键洞察 / Key insight</strong>：post-training（pretrain + fine-tune）比 target-only（从头训）高 18 个百分点（68.5% vs 50.6%），证明 pretrain 阶段学到的物理常识 + 视觉表征确实有迁移价值。这是 GR00T 整套 foundation model 路线的核心实证。
+<div class="tldr-en">Post-training (pretrain + fine-tune) beats target-only (from scratch) by 18 pts (68.5% vs 50.6%) — empirical proof that pretrain-learned physics priors + visual reps transfer.</div>
+</div>
+
+<h2>2. 五档 Checkpoint 流程图 (Pipeline)</h2>
+
+<svg width="900" height="380" viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3"
+            orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1f2328"/>
+    </marker>
+  </defs>
+
+  <!-- Data sources -->
+  <rect x="30" y="40" width="180" height="60" rx="6" fill="#fff1e5" stroke="#f59e0b"/>
+  <text x="120" y="68" text-anchor="middle" font-size="14" font-weight="bold">300-task pretrain data</text>
+  <text x="120" y="88" text-anchor="middle" font-size="11" fill="#57606a">482h human + 1615h mimicgen</text>
+
+  <rect x="30" y="240" width="180" height="60" rx="6" fill="#fff1e5" stroke="#f59e0b"/>
+  <text x="120" y="268" text-anchor="middle" font-size="14" font-weight="bold">Target task data (50)</text>
+  <text x="120" y="288" text-anchor="middle" font-size="11" fill="#57606a">atomic_seen / composite_*</text>
+
+  <!-- Stage 1: pretraining -->
+  <rect x="270" y="40" width="180" height="60" rx="6" fill="#ddf4ff" stroke="#0969da"/>
+  <text x="360" y="68" text-anchor="middle" font-size="14" font-weight="bold">Pretraining</text>
+  <text x="360" y="88" text-anchor="middle" font-size="11" fill="#57606a">80k steps · 3B params</text>
+
+  <!-- Pretraining only output -->
+  <rect x="520" y="40" width="200" height="60" rx="6" fill="#fafafa" stroke="#999"/>
+  <text x="620" y="62" text-anchor="middle" font-size="13" font-weight="bold">pretraining/ckpt-80000</text>
+  <text x="620" y="80" text-anchor="middle" font-size="11" fill="#57606a">无 fine-tune</text>
+  <text x="620" y="94" text-anchor="middle" font-size="11" fill="#cf222e">SR 41.9%</text>
+
+  <!-- Target post-training -->
+  <rect x="270" y="240" width="180" height="60" rx="6" fill="#dafbe1" stroke="#1a7f37"/>
+  <text x="360" y="268" text-anchor="middle" font-size="14" font-weight="bold">Target Post-Training</text>
+  <text x="360" y="288" text-anchor="middle" font-size="11" fill="#57606a">60k steps</text>
+
+  <!-- Outputs from post-training -->
+  <rect x="520" y="180" width="220" height="48" rx="6" fill="#dafbe1" stroke="#1a7f37"/>
+  <text x="630" y="200" text-anchor="middle" font-size="12" font-weight="bold">atomic_seen/ckpt-60000</text>
+  <text x="630" y="218" text-anchor="middle" font-size="11" fill="#1a7f37">SR 68.5% ✨ 推荐</text>
+
+  <rect x="520" y="235" width="220" height="40" rx="6" fill="#fafafa" stroke="#999"/>
+  <text x="630" y="252" text-anchor="middle" font-size="12">composite_seen/ckpt-60000</text>
+  <text x="630" y="267" text-anchor="middle" font-size="11" fill="#cf222e">SR 40.6%</text>
+
+  <rect x="520" y="282" width="220" height="40" rx="6" fill="#fafafa" stroke="#999"/>
+  <text x="630" y="299" text-anchor="middle" font-size="12">composite_unseen/ckpt-60000</text>
+  <text x="630" y="314" text-anchor="middle" font-size="11" fill="#cf222e">SR 42.1%</text>
+
+  <!-- Multitask baseline -->
+  <rect x="270" y="140" width="180" height="60" rx="6" fill="#fff8c5" stroke="#d4a017"/>
+  <text x="360" y="168" text-anchor="middle" font-size="14" font-weight="bold">Multitask Training</text>
+  <text x="360" y="188" text-anchor="middle" font-size="11" fill="#57606a">120k steps</text>
+
+  <rect x="520" y="140" width="200" height="40" rx="6" fill="#fafafa" stroke="#999"/>
+  <text x="620" y="162" text-anchor="middle" font-size="13" font-weight="bold">multitask/ckpt-120000</text>
+  <text x="620" y="178" text-anchor="middle" font-size="11" fill="#cf222e">SR 43%</text>
+
+  <!-- Arrows -->
+  <line x1="210" y1="70" x2="265" y2="70" stroke="#1f2328" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="210" y1="170" x2="265" y2="170" stroke="#1f2328" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="210" y1="270" x2="265" y2="270" stroke="#1f2328" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <line x1="450" y1="70" x2="515" y2="70" stroke="#1f2328" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="170" x2="515" y2="160" stroke="#1f2328" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Pretrain feeds into post-training -->
+  <line x1="360" y1="100" x2="360" y2="237" stroke="#1a7f37" stroke-width="2"
+        stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <text x="370" y="180" font-size="11" fill="#1a7f37" font-style="italic">init from pretrain</text>
+
+  <!-- Post-training to 3 outputs -->
+  <line x1="450" y1="260" x2="515" y2="205" stroke="#1a7f37" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="270" x2="515" y2="255" stroke="#1a7f37" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="280" x2="515" y2="305" stroke="#1a7f37" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>
+
+<h2>3. 下载与使用 (Download &amp; Usage)</h2>
+
+<p>本仓只下推理子集（砍掉 16 GB 里的 8.5 GB <code>optimizer.pt</code>、scheduler、rng_state、trainer_state），单 ckpt <strong>7.1 GB</strong>：</p>
+
+<pre><code>from huggingface_hub import snapshot_download
+ckpt = "gr00t_n1-5/foundation_model_learning/target_posttraining/atomic_seen/checkpoint-60000"
+snapshot_download(
+    repo_id="robocasa/robocasa365_checkpoints",
+    repo_type="model",
+    local_dir="~/.cache/robocasa/checkpoints",
+    allow_patterns=[
+        f"{ckpt}/model-*.safetensors",
+        f"{ckpt}/model.safetensors.index.json",
+        f"{ckpt}/config.json",
+        f"{ckpt}/experiment_cfg/*",
+    ],
+)</code></pre>
+
+<p>对应 RoboCasa.ipynb 的 §0.5 第二个 cell。</p>
+
+<h2>4. 基于 GR00T N1.7 自训练 — GPU-hours 估算</h2>
+
+<p>NVIDIA 已发布 <code>nvidia/GR00T-N1.7-3B</code> 基座（2026-04-23），但没有 RoboCasa 任务专项 fine-tune。要拿到对应本仓 N1.5 的成功率（atomic-seen 68.5%），用户需自己复刻 pretrain + post-training pipeline。</p>
+
+<h3>4.1 模型规模 (Model Size)</h3>
+<ul>
+  <li><strong>GR00T N1.5/N1.7 backbone (Eagle2)</strong>：~3B params total</li>
+  <li><strong>Action head (DiT diffusion)</strong>：~550M params</li>
+  <li><strong>Self-attention transformer</strong>：~200M params</li>
+  <li><strong>Backbone hidden_size</strong>：2048 / <strong>Action hidden_size</strong>：1024 / <strong>Action horizon</strong>：16</li>
+</ul>
+
+<h3>4.2 训练步数 + 数据量 (Training Steps &amp; Data)</h3>
+<table>
+  <thead>
+    <tr><th>阶段 / Stage</th><th>Steps</th><th>数据时长</th><th>Batch size</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Pretrain（300 任务）</td><td>80,000</td><td>482h human + 1615h mimicgen = 2097h</td><td>~192–256</td></tr>
+    <tr><td>Multitask training</td><td>120,000</td><td>2097h</td><td>~192–256</td></tr>
+    <tr><td>Target post-training</td><td>60,000</td><td>193h human (50 任务)</td><td>~128</td></tr>
+  </tbody>
+</table>
+
+<h3>4.3 GPU-hours 推算 (Linus 式估算)</h3>
+
+<p>参考：3B VLA 模型 + 16-step action chunk + 224×224 三视角图像。<strong>H100 SXM5 典型吞吐 ≈ 5-8 steps/sec</strong>（含 backbone forward + DiT denoising 4-step）。<strong>H800</strong>（特供，NVLink 限速版）≈ H100 的 75-85%；<strong>H20</strong>（中国合规算力卡，FP16 算力大幅缩水）≈ H100 的 30-40%。</p>
+
+<div class="note">
+计算口径：取 H100 6 steps/sec 中位值；H800 ≈ 0.8× H100；H20 ≈ 0.35× H100。Batch 192 走 8 卡 data-parallel，单卡 forward 数等于 global steps。云价按 <strong><a href="https://www.autodl.com/">AutoDL</a> 报价</strong>：<strong>H800 ¥9/GPU·h、H20 ¥8/GPU·h</strong>。<strong>阿里云灵骏 / 火山引擎机器学习平台 同卡型贵 3-5 倍</strong>（H800 ¥30-50/h），适合企业要发票，个人科研选 AutoDL。
+<div class="tldr-en">H800 ≈ 0.8× H100 throughput; H20 ≈ 0.35× H100. Prices on AutoDL: H800 ¥9, H20 ¥8 per GPU·hour. Aliyun Lingjun / Volcano Engine charge 3-5× more.</div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2">阶段</th>
+      <th colspan="2">H800 @ ¥9/h</th>
+      <th colspan="2">H20 @ ¥8/h</th>
+    </tr>
+    <tr>
+      <th>GPU-hours</th>
+      <th>成本 (CNY)</th>
+      <th>GPU-hours</th>
+      <th>成本 (CNY)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Pretrain 80k steps</td>
+      <td>~800-1300</td>
+      <td>¥7,200-11,700</td>
+      <td>~1700-2900</td>
+      <td>¥13,600-23,200</td>
+    </tr>
+    <tr>
+      <td>Multitask 120k steps</td>
+      <td>~1200-1900</td>
+      <td>¥10,800-17,100</td>
+      <td>~2600-4300</td>
+      <td>¥20,800-34,400</td>
+    </tr>
+    <tr>
+      <td>Post-training 60k steps</td>
+      <td>~270-530</td>
+      <td>¥2,400-4,800</td>
+      <td>~570-1140</td>
+      <td>¥4,600-9,100</td>
+    </tr>
+    <tr style="background:#dafbe1">
+      <td><strong>完整管线（pretrain + posttrain）</strong></td>
+      <td><strong>~1070-1830</strong></td>
+      <td><strong>¥9,600-16,500</strong></td>
+      <td><strong>~2270-4040</strong></td>
+      <td><strong>¥18,200-32,300</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="meta">挂壁时间（8 卡节点）：H800 节点 ~4-7 天，H20 节点 ~8-15 天。中小厂租 H800 比 H20 反而便宜，<strong>除非你有 H20 现成的内部资源否则别选 H20</strong>。</p>
+
+<h3>4.4 不同硬件等级估算 (Hardware Tiers)</h3>
+
+<table>
+  <thead>
+    <tr><th>硬件</th><th>显存</th><th>完整管线时间</th><th>可行性</th></tr>
+  </thead>
+  <tbody>
+    <tr style="background:#dafbe1">
+      <td><strong>8×H100 / B200 / H200</strong></td>
+      <td>80-141 GB</td>
+      <td>4-7 天</td>
+      <td>✅ NVIDIA / OpenAI 工业标准</td>
+    </tr>
+    <tr>
+      <td>8×A100 80GB</td>
+      <td>80 GB</td>
+      <td>10-15 天</td>
+      <td>✅ 可行但慢，云上还能租到</td>
+    </tr>
+    <tr>
+      <td>2×H100 / 4×A100</td>
+      <td>80 GB</td>
+      <td>30-60 天</td>
+      <td>⚠️ FSDP + grad accum，慢但能跑</td>
+    </tr>
+    <tr>
+      <td>单 H100 80GB</td>
+      <td>80 GB</td>
+      <td>~3-6 个月</td>
+      <td>⚠️ 个人科研，必须 FSDP/ZeRO-3</td>
+    </tr>
+    <tr>
+      <td>单 RTX A6000 48GB</td>
+      <td>48 GB</td>
+      <td>~6-12 个月</td>
+      <td>⚠️ 必须 8-bit 优化器，开发不实际</td>
+    </tr>
+    <tr style="background:#ffebe9">
+      <td>单 RTX 4090 24GB</td>
+      <td>24 GB</td>
+      <td>—</td>
+      <td>❌ 装不下 3B 模型 + DiT；只能做 LoRA 或量化推理</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warn">
+<strong>注意 / Caveat</strong>：上述估算是 from-scratch 复刻规模。如果你已经有 N1.7 base，<strong>只做 atomic_seen post-training</strong>（60k steps、193 小时数据），<strong>H800 8 卡节点 1-2 天，¥2,400-4,800</strong> 即可。这是最划算路径。
+<div class="tldr-en">If you already have the N1.7 base, post-training only takes ~1-2 days on 8×H800 (¥2.4-4.8k). Best value path.</div>
+</div>
+
+<h3>4.5 自训练实际操作 (How to Actually Train)</h3>
+
+<ol>
+  <li><strong>拉 fork</strong>：<code>git clone https://github.com/robocasa-benchmark/Isaac-GR00T</code>（本仓已作为 submodule 在 <code>dependencies/Isaac-GR00T/</code>）</li>
+  <li><strong>装环境</strong>：<code>pip install -e .[base]</code> + <code>flash-attn==2.7.1.post4</code>（见 <code>scripts/install_gr00t_env.sh</code>）</li>
+  <li><strong>下数据</strong>：<code>python -m robocasa.scripts.download_datasets --tasks &lt;atomic_seen&gt;</code>（每个任务几 GB，18 任务 ~50-100 GB）</li>
+  <li><strong>训</strong>：
+    <pre><code>python scripts/gr00t_finetune.py \
+  --output-dir /path/to/output \
+  --dataset_soup atomic_seen \
+  --max_steps 60000 \
+  --base-model nvidia/GR00T-N1.7-3B   # 改 base 即可切换 N1.5 → N1.7</code></pre>
+  </li>
+  <li><strong>eval</strong>：<code>python scripts/run_eval.py --model_path &lt;your-ckpt&gt; --task_set atomic_seen --split pretrain</code> — 或直接复用本仓 <code>scripts/robocasa_eval_gr00t.py</code></li>
+</ol>
+
+<h2>5. 决策建议 (Decision Guide)</h2>
+
+<table>
+  <thead>
+    <tr><th>你的需求</th><th>推荐方案</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>只想看 GR00T 在 RoboCasa 里"工作"</td>
+      <td><strong>直接用本仓 §2</strong>（atomic-seen post-trained N1.5），免训练</td>
+    </tr>
+    <tr>
+      <td>想试 N1.7 是否在 RoboCasa 上比 N1.5 强</td>
+      <td>租 8×H800 节点 1-2 天跑 60k post-training（<strong>¥2,400-4,800</strong>）</td>
+    </tr>
+    <tr>
+      <td>想做 RoboCasa 上 SOTA 研究</td>
+      <td>从 N1.7 base 重训 pretrain + posttrain，~4-7 天（<strong>¥9,600-16,500 H800</strong>）</td>
+    </tr>
+    <tr>
+      <td>个人 GPU（4090/A6000）</td>
+      <td>只做 LoRA fine-tune 单任务（不要全参数训），10-30 GPU-hours 可出结果</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="tldr">
+<strong>Linus 模式 三问自检</strong>：
+<ul>
+  <li><strong>真问题还是假想？</strong> 真问题 — N1.5 是 2025-12 发布，N1.7 已经是 2026-04 的新基座，本仓还停在 N1.5</li>
+  <li><strong>有更简单方案吗？</strong> 有 — RoboCasa 团队迟早会重训一版 N1.7 放出来，等他们</li>
+  <li><strong>会破坏什么吗？</strong> 不会 — N1.7 ckpt 跟 N1.5 同 3B 同 embodiment 接口，本仓 eval pipeline 直接复用</li>
+</ul>
+<div class="tldr-en"><strong>Linus three-question check</strong>: real problem? Yes — N1.5 is Dec-2025, N1.7 is Apr-2026 base. Simpler? Yes — wait for RoboCasa team's N1.7 retraining. Breakage? None — N1.7 keeps the 3B / PandaOmron API, our eval pipeline reuses as-is.</div>
+</div>
+
+<p class="meta">配套代码: <code>scripts/robocasa_eval_gr00t.py</code> · <code>scripts/_gr00t_inference_server.py</code> · <code>scripts/_gr00t_eval_client.py</code> · <code>scripts/install_gr00t_env.sh</code></p>
+
+</body>
+</html>

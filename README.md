@@ -40,6 +40,30 @@ _G1 in a deep Pu Bu (仆步) side-lunge — right leg fully extended along the f
 
 ---
 
+## ✨ RoboCasa × GR00T N1.5 — OpenCabinet 操作 (Manipulation)
+
+_NVIDIA GR00T N1.5 VLA policy opening kitchen cabinet in RoboCasa sim_
+
+把 [NVIDIA Isaac-GR00T](https://github.com/robocasa-benchmark/Isaac-GR00T) 的预训练 **GR00T N1.5 atomic-seen post-trained** 策略接入 [RoboCasa](https://robocasa.ai) 厨房仿真，让 **PandaOmron**（Franka Panda + Omron LD-60 移动底盘）端到端完成 atomic 操作任务。下图为 **OpenCabinet** 任务实跑录屏：
+
+_Pretrained GR00T N1.5 policy (atomic-seen post-trained checkpoint) drives PandaOmron through an OpenCabinet task end-to-end in the RoboCasa kitchen sim. Video shows live rollout._
+
+<div align="center">
+
+https://github.com/user-attachments/assets/b6f40084-5e8d-4c2d-a248-f4d50ba8c846
+
+</div>
+
+### 通用信息 / At a glance
+
+- **入口 / Entry point**:📓 [RoboCasa.ipynb](./RoboCasa.ipynb)（§2 全 18 个 atomic_seen 任务一键跑 / 18 atomic-seen tasks, one-click）
+- **架构 / Architecture**:双 conda env 双进程 — `robocasa_gr00t` 跑 GR00T 推理 server (torch 2.5.1 + flash-attn) ↔ `robocasa` 跑 robosuite sim client，ZMQ + pickle 通信
+- **Checkpoint**:`gr00t_n1-5/foundation_model_learning/target_posttraining/atomic_seen/checkpoint-60000`（推理子集 7.1 GB / paper avg success rate **68.5%**）
+- **18 个 atomic 任务 / 18 atomic tasks**:开柜 / 开抽屉 / 关冰箱 / 转水龙头 / 开微波炉 / 拾放 / 导航 ...（详见 notebook §2）
+- **更多细节 / Details**:📄 [doc/robocasa_gr00t_checkpoints.html](./doc/robocasa_gr00t_checkpoints.html)（5 档 ckpt 对比 + N1.7 自训 GPU 预算）
+
+---
+
 ## 📓 交互式指南 (Notebooks)
 
 _Interactive guides — runnable Jupyter notebooks_
