@@ -22,3 +22,6 @@
 [submodule "KungfuBot"]
 	path = KungfuBot
 	url = https://github.com/TeleHuman/PBHC.git
+[submodule "dependencies/robocasa"]
+	path = dependencies/robocasa
+	url = https://github.com/robocasa/robocasa

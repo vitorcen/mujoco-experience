@@ -54,6 +54,7 @@ _Interactive guides — runnable Jupyter notebooks_
 | [`UNITREE.ipynb`](./UNITREE.ipynb) | Unitree 机器人 (Go2/B2/H1/G1) sim-to-real 仿真流程      |
 | [`PI05.ipynb`](./PI05.ipynb)       | Pi05 VLA 模型推理演示（`pi05_minimax_vla` 子模块）    |
 | [`SCENE.ipynb`](./SCENE.ipynb)     | 一键运行的 MuJoCo 场景库（dm_control / robosuite / LIBERO …）调研 |
+| [`RoboCasa.ipynb`](./RoboCasa.ipynb) | RoboCasa 厨房场景与操作任务（独立 conda env，mujoco 3.3.1 钉版本） |
 
 > 在 VS Code / JupyterLab 中打开任一 notebook，按顺序执行 cell 即可。
 
@@ -76,6 +77,8 @@ mujoco-experience/
 ├── DeepMimic_mujoco/          # DeepMimic 动作模仿 (submodule)
 ├── rsl_rl/                    # RSL 强化学习库 (submodule)
 ├── pi05_minimax_vla/          # Pi05 VLA 模型 (submodule)
+├── dependencies/              # 重资产 / 锁版本子模块隔离区
+│   └── robocasa/              # RoboCasa (submodule，独立 conda env)
 ├── scripts/                   # Python 演示与控制脚本
 ├── doc/                       # 文档资产 (图片等)
 ├── patch_files/               # 子模块补丁
