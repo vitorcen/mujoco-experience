@@ -17,17 +17,33 @@ import argparse
 import json
 import os
 import pickle
+import signal
+import subprocess
 import sys
 import time
 
 import numpy as np
 import zmq
 
-# Import robocasa to register gym envs. Stub trick from robocasa_demo.py is
-# unnecessary here — the orchestrator clears bytecode and sets
-# PYTHONDONTWRITEBYTECODE=1 to dodge the PEP 659 quickened-opcode bug.
-import robocasa  # noqa: F401
-import gymnasium as gym
+# NOTE: robocasa / gymnasium / mujoco are imported LAZILY (see _lazy_env_imports),
+# NOT at module top. Root cause of the old "random crash" benchmark failures
+# (unknown opcode / line -1 / 'method' object is not iterable in pure-Python
+# yaml/xml during env.reset()): a C-extension (most likely MuJoCo's GL/EGL)
+# corrupts the heap across repeated robosuite env.reset() churn, and CPython
+# 3.11's PEP 659 adaptive specializing interpreter surfaces that corruption as
+# bizarre bytecode errors. PYTHONDONTWRITEBYTECODE=1 does NOT help (PEP 659
+# quickening is in-memory, unrelated to .pyc). The fix is process isolation:
+# the DRIVER never touches robocasa/mujoco (stays pristine) and spawns one fresh
+# WORKER subprocess per episode, so corruption can never accumulate or leak
+# across episodes. A worker that segfaults/opcode-crashes costs only its own
+# episode — the driver records it and moves on.
+
+
+def _lazy_env_imports():
+    """Import the heavy (corruption-prone) sim stack. Worker process only."""
+    import robocasa  # noqa: F401  (registers gym envs)
+    import gymnasium as gym
+    return gym
 
 
 def _add_time_dim(obs):
@@ -49,12 +65,25 @@ def _add_time_dim(obs):
 
 
 class PolicyClient:
-    def __init__(self, host, port, timeout_s=120):
+    def __init__(self, host, port, timeout_s=120, send_reset=False):
         self.ctx = zmq.Context()
         self.sock = self.ctx.socket(zmq.REQ)
         self.sock.setsockopt(zmq.RCVTIMEO, timeout_s * 1000)
         self.sock.setsockopt(zmq.SNDTIMEO, timeout_s * 1000)
         self.sock.connect(f"tcp://{host}:{port}")
+        # When True, send a {"op":"reset"} at each episode start so a stateful
+        # server (e.g. ACT with temporal ensembling) clears per-episode state.
+        # Off by default so the GR00T server — which doesn't implement "reset" —
+        # is unaffected.
+        self.send_reset = send_reset
+
+    def maybe_reset(self):
+        if not self.send_reset:
+            return
+        self.sock.send(pickle.dumps({"op": "reset"}))
+        reply = pickle.loads(self.sock.recv())
+        if "error" in reply:
+            raise RuntimeError(f"server reset error: {reply['error']}")
 
     def get_action_chunk(self, obs):
         self.sock.send(pickle.dumps({"op": "get_action", "obs": _add_time_dim(obs)}))
@@ -136,6 +165,8 @@ def run_episode(env, client, n_action_steps, max_steps, viewer=None, initial_obs
         # extra random init that drifts episode 0 onto a different layout
         # than callers had pre-warm-up (codex spotted this regression).
         obs = initial_obs
+    # Tell a stateful server a new episode is starting (no-op unless send_reset).
+    client.maybe_reset()
     if viewer is not None:
         # robocasa re-randomizes layout & robot pose on every reset, so the
         # camera must be re-aimed or we end up staring into a wall.
@@ -194,79 +225,220 @@ def main():
                     help="With --render, pause this many seconds after the viewer "
                          "opens before starting the policy, so the user can locate "
                          "the window and see the initial scene before motion starts.")
+    ap.add_argument("--send-reset", action="store_true",
+                    help="Send a {op:reset} to the server at each episode start "
+                         "(for stateful servers like ACT temporal ensembling). "
+                         "Leave off for the GR00T server which has no reset op.")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="Base RNG seed. The driver gives episode N the seed "
+                         "(base+N), so every policy faces the identical, "
+                         "reproducible scene sequence — a FAIR benchmark. "
+                         "robocasa's reset(seed) fully determines the scene "
+                         "(layout/style + object & robot placement). Unset = "
+                         "old random behaviour (unfair across policies).")
+    # --- process-isolation knobs (internal; set by the driver, not the caller) ---
+    ap.add_argument("--episode", type=int, default=None,
+                    help="WORKER MODE: run exactly this one episode and exit. "
+                         "When omitted, runs in DRIVER MODE (spawns one isolated "
+                         "worker subprocess per episode — see module docstring).")
+    ap.add_argument("--episode-result-path", default=None,
+                    help="WORKER MODE: where to write this episode's {success,steps} "
+                         "JSON. The driver reads it back after the worker exits.")
     args = ap.parse_args()
 
+    if args.episode is None:
+        return _driver_main(args)
+    return _worker_main(args)
+
+def _worker_main(args):
+    """Run exactly ONE episode in this fresh process, then exit. All the
+    corruption-prone work (robocasa import, env build, repeated reset churn) is
+    confined here, so a crash takes only this episode down — not the whole run."""
+    gym = _lazy_env_imports()
+    ep = args.episode
+
     full_env_name = f"robocasa/{args.env_name}"
-    print(f"[client] making env {full_env_name} (split={args.split})", flush=True)
+    print(f"[worker ep{ep}] making env {full_env_name} (split={args.split})", flush=True)
     env = gym.make(full_env_name, split=args.split, enable_render=True)
 
     # Force a reset BEFORE attaching the passive viewer so robosuite's offscreen
     # renderer initialises its GL context + uploads textures first. If we open
     # the passive viewer first, its GL context comes up before robocasa has
     # generated kitchen textures, and the viewer ends up rendering flat colours.
-    # We keep the obs and feed it into episode 0 so we don't burn an extra
-    # random init (episode 0 would otherwise see different layout/objects).
-    print("[client] warm-up reset (loads textures before viewer init) ...", flush=True)
-    initial_obs, _ = env.reset()
+    # We feed this obs into the episode so we don't burn an extra random init.
+    print(f"[worker ep{ep}] warm-up reset (seed={args.seed}) ...", flush=True)
+    initial_obs, _ = env.reset(seed=args.seed) if args.seed is not None else env.reset()
 
     viewer = None
     if args.render:
-        print("[client] attaching passive MuJoCo viewer ...", flush=True)
+        print(f"[worker ep{ep}] attaching passive MuJoCo viewer ...", flush=True)
         viewer = _attach_passive_viewer(env)
         warmup = max(0.0, args.render_warmup_s)
         if warmup > 0:
-            print(f"[client] ============================================", flush=True)
-            print(f"[client] >>> MuJoCo viewer opened. Bring it to focus.  <<<", flush=True)
-            print(f"[client] >>> Policy starts in {warmup:.0f}s ...           <<<", flush=True)
-            print(f"[client] ============================================", flush=True)
-            # The viewer renders the static scene in its own thread; we just
-            # sleep (with periodic sync to keep it responsive) so the user has
-            # time to locate the window before motion starts.
+            print(f"[worker ep{ep}] ============================================", flush=True)
+            print(f"[worker ep{ep}] >>> MuJoCo viewer opened. Bring it to focus. <<<", flush=True)
+            print(f"[worker ep{ep}] >>> Policy starts in {warmup:.0f}s ...          <<<", flush=True)
+            print(f"[worker ep{ep}] ============================================", flush=True)
             t_end = time.time() + warmup
             while time.time() < t_end:
                 viewer.sync()
                 time.sleep(0.05)
-            print(f"[client] starting policy now.", flush=True)
+            print(f"[worker ep{ep}] starting policy now.", flush=True)
 
-    client = PolicyClient(args.host, args.port)
+    client = PolicyClient(args.host, args.port, send_reset=args.send_reset)
+    try:
+        ok, steps = run_episode(env, client, args.n_action_steps,
+                                args.max_steps, viewer=viewer,
+                                initial_obs=initial_obs)
+    except Exception as e:
+        print(f"[worker ep{ep}] episode crashed: {e}", flush=True)
+        ok, steps = False, 0
 
-    results = []
-    t0 = time.time()
-    for ep in range(args.n_episodes):
-        try:
-            ep_initial_obs = initial_obs if ep == 0 else None
-            ok, steps = run_episode(env, client, args.n_action_steps,
-                                    args.max_steps, viewer=viewer,
-                                    initial_obs=ep_initial_obs)
-        except Exception as e:
-            print(f"[client] episode {ep} crashed: {e}", flush=True)
-            ok, steps = False, 0
-        results.append({"episode": ep, "success": bool(ok), "steps": steps})
-        rate = np.mean([r["success"] for r in results])
-        print(f"[client] EP {ep}: success={ok} steps={steps} | cumulative_rate={rate:.2f}", flush=True)
-
-    dt = time.time() - t0
-    summary = {
-        "env_name": args.env_name,
-        "split": args.split,
-        "n_episodes": args.n_episodes,
-        "success_rate": float(np.mean([r["success"] for r in results])),
-        "wall_time_s": dt,
-        "results": results,
-    }
-    print("\n========== RESULTS ==========")
-    print(json.dumps(summary, indent=2))
-
-    if args.results_path:
-        os.makedirs(os.path.dirname(args.results_path) or ".", exist_ok=True)
-        with open(args.results_path, "w") as f:
-            json.dump(summary, f, indent=2)
-        print(f"[client] saved to {args.results_path}")
+    print(f"[worker ep{ep}] success={ok} steps={steps}", flush=True)
+    if args.episode_result_path:
+        with open(args.episode_result_path, "w") as f:
+            json.dump({"episode": ep, "success": bool(ok), "steps": int(steps)}, f)
 
     if viewer is not None:
         viewer.close()
     env.close()
     client.close()
+
+
+def _driver_main(args):
+    """Spawn one isolated worker subprocess per episode, collect results, and
+    write the same summary JSON the single-process client used to write.
+
+    This process NEVER imports robocasa/mujoco, so it stays pristine no matter
+    how badly a worker corrupts its own heap. A worker that segfaults or dies
+    with a PEP-659 bytecode error simply leaves no result file → recorded as a
+    sim-DNF (steps=0) and we move to the next episode."""
+    results = []
+    t0 = time.time()
+
+    def _write_summary():
+        if not args.results_path:
+            return None
+        summary = {
+            "env_name": args.env_name,
+            "split": args.split,
+            "n_episodes": args.n_episodes,
+            "n_completed": len(results),
+            "success_rate": float(np.mean([r["success"] for r in results])) if results else 0.0,
+            "wall_time_s": time.time() - t0,
+            "results": results,
+        }
+        os.makedirs(os.path.dirname(args.results_path) or ".", exist_ok=True)
+        tmp = args.results_path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(summary, f, indent=2)
+        os.replace(tmp, args.results_path)
+        return summary
+
+    # Hard per-episode wall-clock cap: a worker that hangs (e.g. MuJoCo GL stall)
+    # must not block the whole benchmark. On timeout we kill the worker's whole
+    # process group (it owns its server connection only; the persistent policy
+    # server is the orchestrator's child, untouched) — this is what prevents the
+    # 1.5h-zombie-client situation. Tune via EP_TIMEOUT_S.
+    ep_timeout_s = int(os.environ.get("EP_TIMEOUT_S", "900"))
+    # Fair benchmark by default: episode N gets seed (base+N), so every policy
+    # faces the IDENTICAL reproducible scene sequence. Override base via --seed or
+    # SEED_BASE. (robocasa target-split OpenCabinet has 1 fixed layout (4,6); the
+    # per-reset object/robot placement is what the seed pins down.)
+    seed_base = args.seed if args.seed is not None else int(os.environ.get("SEED_BASE", "0"))
+
+    # Per-episode result handoff file lives next to the results JSON (or /tmp).
+    res_dir = os.path.dirname(os.path.abspath(args.results_path)) if args.results_path else "/tmp"
+    os.makedirs(res_dir, exist_ok=True)
+
+    base_cmd = [sys.executable, "-u", os.path.abspath(__file__),
+                "--env-name", args.env_name, "--split", args.split,
+                "--n-action-steps", str(args.n_action_steps),
+                "--max-steps", str(args.max_steps),
+                "--host", args.host, "--port", str(args.port),
+                "--n-episodes", "1"]
+    if args.send_reset:
+        base_cmd.append("--send-reset")
+    if args.render:
+        base_cmd += ["--render", "--render-warmup-s", str(args.render_warmup_s)]
+
+    print(f"[driver] {args.n_episodes} episodes, one isolated worker each "
+          f"(env={args.env_name} split={args.split} port={args.port})", flush=True)
+
+    max_ep_tries = int(os.environ.get("EVAL_EP_RETRIES", "3"))
+
+    def _spawn_worker(ep, ep_res_path):
+        """One worker subprocess for episode `ep`. Returns (rec, rc): rec is the
+        result dict, or None if the worker crashed/timed out before writing one.
+        start_new_session → worker is its own process group, so a timeout kill
+        takes down the worker AND any sim/GL child. stdio inherited → live logs."""
+        if os.path.exists(ep_res_path):
+            os.remove(ep_res_path)
+        cmd = base_cmd + ["--episode", str(ep), "--episode-result-path", ep_res_path,
+                          "--seed", str(seed_base + ep)]
+        proc = subprocess.Popen(cmd, start_new_session=True)
+        try:
+            rc = proc.wait(timeout=ep_timeout_s)
+        except subprocess.TimeoutExpired:
+            print(f"[driver] episode {ep} exceeded {ep_timeout_s}s — killing worker group",
+                  flush=True)
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except Exception:
+                proc.kill()
+            proc.wait()
+            rc = -1
+        rec = None
+        if os.path.exists(ep_res_path):
+            try:
+                rec = json.load(open(ep_res_path))
+            except Exception:
+                rec = None
+            finally:
+                try:
+                    os.remove(ep_res_path)
+                except OSError:
+                    pass
+        return rec, rc
+
+    for ep in range(args.n_episodes):
+        ep_res_path = os.path.join(res_dir, f".ep_{ep}_{os.getpid()}.json")
+        # Same seed = same scene. A sim-DNF (worker wrote no result: segfault /
+        # PEP-659 opcode / timeout) is retried up to EVAL_EP_RETRIES times on the
+        # IDENTICAL scene — robocasa's crash is probabilistic, so a fresh process
+        # usually gets through. An honest model failure (steps>0, success=False)
+        # is a REAL outcome and is never retried.
+        rec = None
+        for attempt in range(1, max_ep_tries + 1):
+            tag = f"episode {ep+1}/{args.n_episodes} (seed {seed_base+ep})"
+            if attempt > 1:
+                tag += f" [retry {attempt}/{max_ep_tries}]"
+            print(f"\n[driver] ===== {tag} =====", flush=True)
+            rec, rc = _spawn_worker(ep, ep_res_path)
+            if rec is not None:
+                break
+            tail = (" — retrying same scene" if attempt < max_ep_tries
+                    else " — giving up, recording sim-DNF")
+            print(f"[driver] episode {ep} attempt {attempt}/{max_ep_tries} "
+                  f"no result (exit={rc}){tail}", flush=True)
+        if rec is None:
+            rec = {"episode": ep, "success": False, "steps": 0}
+        results.append(rec)
+        rate = np.mean([r["success"] for r in results])
+        print(f"[driver] EP {ep}: success={rec['success']} steps={rec['steps']} "
+              f"| cumulative_rate={rate:.2f}", flush=True)
+        _write_summary()
+
+    summary = _write_summary() or {
+        "env_name": args.env_name, "split": args.split,
+        "n_episodes": args.n_episodes, "n_completed": len(results),
+        "success_rate": float(np.mean([r["success"] for r in results])) if results else 0.0,
+        "wall_time_s": time.time() - t0, "results": results,
+    }
+    print("\n========== RESULTS ==========")
+    print(json.dumps(summary, indent=2))
+    if args.results_path:
+        print(f"[driver] saved to {args.results_path}")
 
 
 if __name__ == "__main__":

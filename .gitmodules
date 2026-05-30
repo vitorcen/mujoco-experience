@@ -29,3 +29,10 @@
 	path = dependencies/Isaac-GR00T
 	url = https://github.com/robocasa-benchmark/Isaac-GR00T.git
 	branch = main
+[submodule "robocasa-training"]
+	path = robocasa-training
+	url = git@github.com:vitorcen/robocasa-training.git
+[submodule "dependencies/openpi"]
+	path = dependencies/openpi
+	url = https://github.com/Physical-Intelligence/openpi.git
+	branch = main

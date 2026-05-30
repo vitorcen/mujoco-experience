@@ -6,6 +6,7 @@ __pycache__/
 .DS_Store
 .idea/
 .env
+hf_release/
 
 .claude
 CLAUDE.md
