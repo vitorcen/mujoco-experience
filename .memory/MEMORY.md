@@ -1,0 +1,13 @@
+- [HTML 必须显式 background](feedback_html_explicit_background.md) — body 设白底，VS Code 暗色预览下黑字才能看清
+- [长训必须分 slice + watcher](feedback_train_with_watcher.md) — 任何 >1h 训练 launcher 不挂分段 eval + 早停就是 bug
+- [watchdog 默认中频interleave+SR早停](feedback_watchdog_interleave_earlystop.md) — INTERLEAVE_STEPS=1500默认;改max_steps毁LR调度,必用StopAtStep回调;EVAL_MAX_STEPS默认400→1200
+- [能续训就续训](feedback_prefer_resume_continue_training.md) — 扩展训练用resume续global_step不重训;同OUTPUT_DIR+调高MAX_STEPS即自动从最新ckpt续(GR00T恒resume_from_checkpoint=True)
+- [lerobot torchcodec fork SEGV](reference_lerobot_torchcodec_fork_segv.md) — num_workers>0 ~step24k 崩，PID-aware decoder cache 修
+- [ACT OpenCabinet human-only 结果](project_act_opencabinet_humanonly_result.md) — 500demo 训13epoch=0% SR，精度受限非bug，下一步 mimicgen 10×
+- [RoboCasa GR00T 依赖双树](project_robocasa_gr00t_two_tree_deps.md) — 双树(N1.5 fork评测/N1.7 上游训练);eval benchmark 崩=client py3.11 PEP659 放大的 MuJoCo 堆损坏，修=每 episode subprocess 隔离(非硬件/非串扰)
+- [N1.7 MimicGen 用原生 mixing 不物理合并](project_n17_mimicgen_native_mix.md) — v2.0 MG 8644ep 直接可加载;launcher 加 EXTRA_DATASETS/PRIMARY_MIX_RATIO env;首跑 human1.0/MG3.0,40k步,checkpoints/gr00t_n17_mg_mix
+- [N1.7 16k训练+精扫完成→上MimicGen](project_n17_16k_run_state.md) — ✅最终榜单:N1.5 64%>N1.7自训50%(peak11k)>pi0.5 17.4%;精扫11k/13k/15k=50/42/44%确认11k后过拟合;N1.7方差大(11k曾27.6%);用户已确认上MimicGen(~7h,均匀随机1500ep+human500~40k step)缩14点差距;authoritative md5已锁
+- [DreamZero RoboCasa OpenCabinet 微调](project_dreamzero_robocasa_opencabinet.md) — 14B Wan WAM LoRA on AutoDL;脚手架复用 LeIsaac;RoboCasa 天然契合(3视角+h264);4090训不动需≥80G;数据+脚本+GEAR转换已就绪AutoDL无卡模式待切GPU
+- [AutoDL DreamZero numpy损坏坑](reference_autodl_dreamzero_numpy_corruption.md) — numpy 1.x/2.x残留.so→pandas全崩→阻塞训练loader;修=物理rm numpy目录重装(非pip reinstall)
+- [GR1 Tabletop 下载+预览 notebook](project_gr1_tabletop_preview.md) — 独立预览线;youliangtan 7.6GB 官方微调 ckpt 有;最优预览=LeRobot 单 mp4 内嵌无需env/GPU;独立 robocasa_gr1 env;先下载安装先不跑(GPU 让给 MimicGen 训练)
+- [DreamZero RoboCasa GUI/sim eval 管线](project_dreamzero_robocasa_gui_eval.md) — ✅全跑通 steps=32;三叠加 bug 修(CPU prompt 编码防OOM/POLICY_TIMEOUT_S/action.act 全名查找);scipy heisenbug 是误判(1.15.3 已修)

@@ -8,6 +8,4 @@ __pycache__/
 .env
 hf_release/
 
-.claude
-CLAUDE.md
-AGENTS.md
+.claude/

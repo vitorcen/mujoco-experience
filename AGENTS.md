@@ -1,0 +1,1 @@
+/home/david/.codex/AGENTS.md
