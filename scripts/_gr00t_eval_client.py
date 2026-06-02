@@ -65,7 +65,12 @@ def _add_time_dim(obs):
 
 
 class PolicyClient:
-    def __init__(self, host, port, timeout_s=120, send_reset=False):
+    def __init__(self, host, port, timeout_s=None, send_reset=False):
+        # Env override for slow policies (e.g. NF4 DreamZero first chunk does a one-time
+        # CPU UMT5 encode + ~85s denoise > default 120s). Default unchanged -> GR00T/pi0.5
+        # benchmarks behave identically.
+        if timeout_s is None:
+            timeout_s = int(os.environ.get("POLICY_TIMEOUT_S", "120"))
         self.ctx = zmq.Context()
         self.sock = self.ctx.socket(zmq.REQ)
         self.sock.setsockopt(zmq.RCVTIMEO, timeout_s * 1000)
@@ -191,6 +196,12 @@ def run_episode(env, client, n_action_steps, max_steps, viewer=None, initial_obs
             steps += 1
             if viewer is not None and viewer.is_running():
                 viewer.sync()
+                # Optional per-step delay so a human can actually SEE the motion: a
+                # 16-step chunk otherwise replays in <1 s then freezes while the next
+                # chunk computes. Env-gated, default 0 -> headless benchmarks unaffected.
+                _delay = float(os.environ.get("RENDER_STEP_DELAY_S", "0") or 0)
+                if _delay > 0:
+                    time.sleep(_delay)
             # Periodic motion heartbeat so the user can confirm the robot is
             # actually moving even if the viewer window isn't visible.
             if steps % 25 == 0:

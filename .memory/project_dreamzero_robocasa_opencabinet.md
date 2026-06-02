@@ -7,8 +7,19 @@ metadata:
   originSessionId: 8f5534ca-f3c2-49d7-a247-bf54c9209e6f
 ---
 
-**▶ RESUME HERE（2026-06-01 末态）：**
-1. **✅ AutoDL 正式 15k 训练已 LIVE(2026-06-01 启动)**。无卡模式坑6已解(控制台切回有卡=RTX PRO 6000 96G)。`setsid bash train_dreamzero_robocasa_lora.sh` 跑起,log=`/root/autodl-tmp/train_robocasa_15k.log`,OUTPUT_DIR=`/root/autodl-tmp/dreamzero_robocasa_opencabinet_lora`。step0 已确认 GPU 54GB/100%、dynamics_loss 0.116/action_loss 0.196(与 smoke 0.636 同量级正常)。6.3s/step,save_steps=2500,save_total_limit=5。**中途每出 checkpoint→拉回本地 4090 NF4 eval 验 SR 提升**(用户要求):一键 `bash robocasa-training/scripts/dreamzero/pull_and_eval_ckpt.sh <STEP> [N_ep=3] [max_steps=1200]`(自动 scp 415MB→起 NF4 server→headless SR)。NF4 单 ep≈1-1.5h,先 3ep 取趋势。死了能续训(同 OUTPUT_DIR 调高 MAX_STEPS 自动 resume,见 [[feedback_prefer_resume_continue_training]])。OMP_NUM_THREADS libgomp 警告无害(torchrun 自设)。
+**🏁 实验线结论(2026-06-02,训练停在 step 12550/15000,checkpoint-12500 为最终可用档):SR 全程 0%,瓶颈=数据量(human-500 太少),非欠训/非坐标 bug。** 训练已停、云端盘已清(只留续训件)。本地有全部 5 档(2500/5000/7500/10000/12500)。
+
+**📊 SR EVAL 榜（本地 4090 NF4,GUI sim rollout;headless 实测仅 ~12min/ep）：全部 0%。**
+- smoke-50 / 2500 / 5000 / 7500 / 10000 / 12500:**SR 一律 0%**。loss 一路降(action 0.196→~0.05)但 SR 不动。
+- **运动演化(GUI |Δeef|/|Δarm| @step75):** 2500=781mm/163° → 5000=274mm/194° → 7500=365mm/183° → 10000=308mm/187°。**5000 步起运动幅度即稳定在"受控平台"(~300mm/~185°),之后到 10000 不再变,SR 不动。**
+- **用户肉眼定性:** 2500"比 smoke 好一点、更连贯"但"伸出去往旁边/下耷拉";10000"像抓锅盖不抓柜门"。**换柜子(SEED env,RoboCasa 按 seed 换 layout/style)行为变**:seed3 幅度骤减(139mm/137°),**给 3 倍时间(288步)则末端一路游走到 857mm、底盘漂 140mm,是"持续游走"不收敛到把手**。
+- **判据已落定:** 多给时间=多游走非收敛 + 换柜子都不解 + **硬对照 [[project_act_opencabinet_humanonly_result]](ACT 同任务 human-500 也 0%,已知数据天花板)** → 锁定**数据量瓶颈**。坐标 bug 排除(若坐标错方向应固定;实际行为随场景大变且 loss 正常拟合)。**下一步 = MimicGen 10× 扩数据再训**(同 [[project_n17_mimicgen_native_mix]] 思路),非继续堆步数。
+- GUI 工具:`run_gui_demo.sh [CKPT] [MAX_STEPS] [N_ACT]` + env `SEED`(换柜)`RENDER_STEP_DELAY_S`(逐步延时看清运动,默认0基准零影响)`POLICY_TIMEOUT_S`。serve/eval 脚本 trap 已用 setsid 进程组杀防显存泄漏。NF4 server 加载偶发段错误(SIGSEGV flaky,重试即过,今天 ~3 次)。
+- ⚠️ 每次 eval 后本地 GPU 若仍占 ~16GB = `conda run` fork 的 python 孙子进程没被 trap 杀到(已修脚本用 setsid 进程组杀);残留就 `nvidia-smi --query-compute-apps` 取 PID → `echo Abc.123|sudo -S kill -9 <PID>`。
+
+**▶ RESUME HERE（2026-06-02 末态）：**
+1. **✅ 15k 训练跑到 step 12550 后用户决策停训(SR 全程 0%,见下"实验线结论")。** 训练进程已杀,GPU 释放,云端数据盘已清(删 smoke 备份/hf_cache SO101 LoRA/pip 缓存,**续训件全留并逐项校验 OK**:wan 基座+T5+VAE、umt5、opencabinet、dreamzero-repo、scripts、checkpoint-12500)。**续训:同 OUTPUT_DIR 调高 MAX_STEPS → `cd /root/autodl-tmp/scripts_robocasa_dreamzero && setsid bash train_dreamzero_robocasa_lora.sh` 自动从 ckpt-12500 续(GR00T 恒 resume,见 [[feedback_prefer_resume_continue_training]])。但堆步数无用(5000 步起 SR 就不动了)。**
+2. **🎯 真正下一步 = MimicGen 10× 扩数据再训**(human-500 是瓶颈,见结论)。AutoDL 实例仍有卡(RTX PRO 6000 96G),无卡模式坑6靠控制台切。一键评估/可视脚本:`pull_and_eval_ckpt.sh <STEP>`(headless SR,~12min/ep)、`run_gui_demo.sh <CKPT> <STEPS> <N_ACT>` + env SEED/RENDER_STEP_DELAY_S/POLICY_TIMEOUT_S。OMP_NUM_THREADS libgomp 警告无害。
 2. **✅ 本地 GUI/sim eval 全跑通**(2026-06-01,steps=32,arm 转 75°/移 22cm)。见 [[project_dreamzero_robocasa_gui_eval]]。scipy heisenbug 是误判;真凶三 bug 已修(CPU prompt 编码防 OOM / POLICY_TIMEOUT_S / action dict 全名查找)。**本地 server 可能还挂在 :5702 占 ~11GB 显存**——训练/eval 前按 GPU PID 杀(`nvidia-smi --query-compute-apps`→`kill -9`)。
 3. **未 commit**：`robocasa-training/scripts/dreamzero/`(convert/yaml/train/eval/serve+GUI 三 bug 修) + `scripts/_gr00t_eval_client.py`(加 POLICY_TIMEOUT_S env,默认 120 向后兼容) + `doc/training_dreamzero_opencabinet.html` + 本地 `dreamzero-repo` cotrain robocasa patch。待用户确认 commit。
 4. 本机改动:dreamzero env scipy 1.17.1→1.15.3;推理脚本路径用 $HOME。

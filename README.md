@@ -6,6 +6,44 @@ _Learning & practice repo for Google DeepMind's MuJoCo physics engine — roboti
 
 ---
 
+## ✨ RoboCasa × GR00T — OpenCabinet 操作 (Manipulation)
+
+_NVIDIA GR00T VLA policy opening kitchen cabinet in RoboCasa sim_
+
+把 [NVIDIA Isaac-GR00T](https://github.com/robocasa-benchmark/Isaac-GR00T) 的预训练 **GR00T N1.5 atomic-seen post-trained** 策略接入 [RoboCasa](https://robocasa.ai) 厨房仿真，让 **PandaOmron**（Franka Panda + Omron LD-60 移动底盘）端到端完成 atomic 操作任务。下图为 **OpenCabinet** 任务实跑录屏：
+
+_Pretrained GR00T N1.5 policy (atomic-seen post-trained checkpoint) drives PandaOmron through an OpenCabinet task end-to-end in the RoboCasa kitchen sim. Video shows live rollout._
+
+<div align="center">
+
+https://github.com/user-attachments/assets/b6f40084-5e8d-4c2d-a248-f4d50ba8c846
+
+</div>
+
+### N1.7 自训版 / N1.7 fine-tuned (single RTX 4090)
+
+_GR00T-N1.7-3B single-task fine-tune; MimicGen two-stage lifts SR to 53.3% (fair 30/30)_
+
+从 N1.7-3B base 在 RoboCasa OpenCabinet 上微调（单卡 4090）。两条路线：
+
+1. **human-only**:500 条人类遥操作数据，seed-locked 精扫峰值 **50%**（step 11k）——保留在 HF 分支 [`human500-ckpt-11000`](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet/tree/human500-ckpt-11000)。
+2. **MimicGen 两阶段 ⭐**:阶段一用 8644 条 MimicGen 生成 episode + 500 human 原生混合（GR00T data factory 按权重混，不做物理合并）预训到 ~34k；阶段二回纯 human 微调对齐评测分布，峰值 **step 14000**。公平 30/30（同 seed 同款橱柜、DNF 重试凑满、零剔除偏置）**53.3%**——现为 HF `main` 模型 [HF model card](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet)。
+
+公平榜单(1200 步 / `n_action_steps=16` / seed_base=0)：**N1.5-multitask 70% > N1.7-MG2stage(14k) 53.3% > pi0.5 23.3%**。MimicGen 较 human-only 提升真实约 10 点，但**未超**大得多的多任务 N1.5。详见 [`robocasa-training`](https://github.com/vitorcen/robocasa-training) 与 [`benchmark/leaderboard.md`](https://github.com/vitorcen/robocasa-training/blob/main/benchmark/leaderboard.md)。
+
+_Fine-tuned from N1.7-3B on OpenCabinet (single 4090). **(1) human-only**: 500 demos, seed-locked sweep peaks at 50% (step 11k), kept on HF branch [`human500-ckpt-11000`](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet/tree/human500-ckpt-11000). **(2) MimicGen two-stage ⭐**: stage-1 native-mix pretrain on 8644 MimicGen episodes + 500 human (GR00T's data factory mixes by weight — no physical merge) to ~34k; stage-2 pure-human finetune re-aligns to the eval distribution, peak at step 14000 = **53.3%** on a fair 30/30 (same seed-locked scenes, DNFs retried to completion, zero exclusion bias) — now the HF `main` model. Fair leaderboard: **N1.5-multitask 70% > N1.7-MG2stage 53.3% > pi0.5 23.3%**. MimicGen adds a real ~10 points over human-only but does **not** overtake the much larger multi-task N1.5._
+
+### 通用信息 / At a glance
+
+- **入口 / Entry point**:📓 [RoboCasa.ipynb](./RoboCasa.ipynb)（§2 全 18 个 atomic_seen 任务一键跑 / 18 atomic-seen tasks, one-click）
+- **架构 / Architecture**:双 conda env 双进程 — `robocasa_gr00t` 跑 GR00T 推理 server (torch 2.5.1 + flash-attn) ↔ `robocasa` 跑 robosuite sim client，ZMQ + pickle 通信
+- **Checkpoint**:`gr00t_n1-5/foundation_model_learning/target_posttraining/atomic_seen/checkpoint-60000`（推理子集 7.1 GB / paper avg success rate **68.5%**）
+- **N1.7 自训 / N1.7 fine-tuned**:MimicGen 两阶段 step 14k = **53.3% SR**（公平 30/30；human-only 11k=50% 在分支）→ [HF model card](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet)
+- **18 个 atomic 任务 / 18 atomic tasks**:开柜 / 开抽屉 / 关冰箱 / 转水龙头 / 开微波炉 / 拾放 / 导航 ...（详见 notebook §2）
+- **更多细节 / Details**:📄 [doc/robocasa_gr00t_checkpoints.html](./doc/robocasa_gr00t_checkpoints.html)（5 档 ckpt 对比 + N1.7 自训 GPU 预算）
+
+---
+
 ## ✨ KungfuBot — G1 功夫动作 (Kung-fu Motions)
 
 _KungfuBot G1 kung-fu policies & reference motions in MuJoCo_
@@ -40,30 +78,6 @@ _G1 in a deep Pu Bu (仆步) side-lunge — right leg fully extended along the f
 
 ---
 
-## ✨ RoboCasa × GR00T N1.5 — OpenCabinet 操作 (Manipulation)
-
-_NVIDIA GR00T N1.5 VLA policy opening kitchen cabinet in RoboCasa sim_
-
-把 [NVIDIA Isaac-GR00T](https://github.com/robocasa-benchmark/Isaac-GR00T) 的预训练 **GR00T N1.5 atomic-seen post-trained** 策略接入 [RoboCasa](https://robocasa.ai) 厨房仿真，让 **PandaOmron**（Franka Panda + Omron LD-60 移动底盘）端到端完成 atomic 操作任务。下图为 **OpenCabinet** 任务实跑录屏：
-
-_Pretrained GR00T N1.5 policy (atomic-seen post-trained checkpoint) drives PandaOmron through an OpenCabinet task end-to-end in the RoboCasa kitchen sim. Video shows live rollout._
-
-<div align="center">
-
-https://github.com/user-attachments/assets/b6f40084-5e8d-4c2d-a248-f4d50ba8c846
-
-</div>
-
-### 通用信息 / At a glance
-
-- **入口 / Entry point**:📓 [RoboCasa.ipynb](./RoboCasa.ipynb)（§2 全 18 个 atomic_seen 任务一键跑 / 18 atomic-seen tasks, one-click）
-- **架构 / Architecture**:双 conda env 双进程 — `robocasa_gr00t` 跑 GR00T 推理 server (torch 2.5.1 + flash-attn) ↔ `robocasa` 跑 robosuite sim client，ZMQ + pickle 通信
-- **Checkpoint**:`gr00t_n1-5/foundation_model_learning/target_posttraining/atomic_seen/checkpoint-60000`（推理子集 7.1 GB / paper avg success rate **68.5%**）
-- **18 个 atomic 任务 / 18 atomic tasks**:开柜 / 开抽屉 / 关冰箱 / 转水龙头 / 开微波炉 / 拾放 / 导航 ...（详见 notebook §2）
-- **更多细节 / Details**:📄 [doc/robocasa_gr00t_checkpoints.html](./doc/robocasa_gr00t_checkpoints.html)（5 档 ckpt 对比 + N1.7 自训 GPU 预算）
-
----
-
 ## 📓 交互式指南 (Notebooks)
 
 _Interactive guides — runnable Jupyter notebooks_
@@ -72,13 +86,13 @@ _Interactive guides — runnable Jupyter notebooks_
 
 | Notebook                          | 说明                                                    |
 | --------------------------------- | ------------------------------------------------------- |
-| [`KungfuBot.ipynb`](./KungfuBot.ipynb) | ⭐ G1 功夫动作 MuJoCo 一键预览（马步出拳/马步姿态 ONNX）/ G1 kung-fu policy preview |
+| [`RoboCasa.ipynb`](./RoboCasa.ipynb) | ⭐ RoboCasa 厨房场景与操作任务（独立 conda env，mujoco 3.3.1 钉版本）/ Kitchen manipulation tasks |
+| [`KungfuBot.ipynb`](./KungfuBot.ipynb) | G1 功夫动作 MuJoCo 一键预览（马步出拳/马步姿态 ONNX）/ G1 kung-fu policy preview |
 | [`DEMO.ipynb`](./DEMO.ipynb)       | C++ 仿真器 (`simulate`) 与内置/Menagerie XML 模型演示 |
 | [`SCRIPTS.ipynb`](./SCRIPTS.ipynb) | Python 控制脚本：VLA、ACT、Diffusion 策略与基础控制     |
 | [`UNITREE.ipynb`](./UNITREE.ipynb) | Unitree 机器人 (Go2/B2/H1/G1) sim-to-real 仿真流程      |
 | [`PI05.ipynb`](./PI05.ipynb)       | Pi05 VLA 模型推理演示（`pi05_minimax_vla` 子模块）    |
 | [`SCENE.ipynb`](./SCENE.ipynb)     | 一键运行的 MuJoCo 场景库（dm_control / robosuite / LIBERO …）调研 |
-| [`RoboCasa.ipynb`](./RoboCasa.ipynb) | RoboCasa 厨房场景与操作任务（独立 conda env，mujoco 3.3.1 钉版本） |
 
 > 在 VS Code / JupyterLab 中打开任一 notebook，按顺序执行 cell 即可。
 
