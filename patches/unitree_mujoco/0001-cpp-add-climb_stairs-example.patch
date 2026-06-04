@@ -1,0 +1,361 @@
+diff --git a/example/cpp/CMakeLists.txt b/example/cpp/CMakeLists.txt
+index 291ff21..0b35c9f 100644
+--- a/example/cpp/CMakeLists.txt
++++ b/example/cpp/CMakeLists.txt
+@@ -1,10 +1,15 @@
+ cmake_minimum_required(VERSION 3.16)
+-project(stand_go2)
++project(unitree_examples)
+ 
+ list(APPEND CMAKE_PREFIX_PATH "/opt/unitree_robotics/lib/cmake")
+ find_package(unitree_sdk2 REQUIRED)
+ 
++# Stand example
+ add_executable(stand_go2 stand_go2.cpp)
+-target_link_libraries(stand_go2  unitree_sdk2)
++target_link_libraries(stand_go2 unitree_sdk2)
++
++# Stair climbing example with trot gait
++add_executable(climb_stairs climb_stairs.cpp)
++target_link_libraries(climb_stairs unitree_sdk2)
+ 
+ SET(CMAKE_BUILD_TYPE Release)
+\ No newline at end of file
+diff --git a/example/cpp/climb_stairs.cpp b/example/cpp/climb_stairs.cpp
+new file mode 100644
+index 0000000..a1e7fb1
+--- /dev/null
++++ b/example/cpp/climb_stairs.cpp
+@@ -0,0 +1,332 @@
++#include <iostream>
++#include <cmath>
++#include <vector>
++#include <termios.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <unitree/robot/channel/channel_publisher.hpp>
++#include <unitree/robot/channel/channel_subscriber.hpp>
++#include <unitree/idl/go2/LowState_.hpp>
++#include <unitree/idl/go2/LowCmd_.hpp>
++#include <unitree/common/time/time_tool.hpp>
++#include <unitree/common/thread/thread.hpp>
++
++using namespace unitree::common;
++using namespace unitree::robot;
++
++#define TOPIC_LOWCMD "rt/lowcmd"
++#define TOPIC_LOWSTATE "rt/lowstate"
++
++constexpr double PosStopF = (2.146E+9f);
++constexpr double VelStopF = (16000.0f);
++
++// Leg indices
++enum LegID { FR = 0, FL = 1, RR = 2, RL = 3 };
++
++struct Vec3 {
++    double x, y, z;
++    Vec3(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
++    Vec3 operator+(const Vec3& v) const { return Vec3(x + v.x, y + v.y, z + v.z); }
++    Vec3 operator-(const Vec3& v) const { return Vec3(x - v.x, y - v.y, z - v.z); }
++    Vec3 operator*(double s) const { return Vec3(x * s, y * s, z * s); }
++};
++
++// Keyboard input helper
++int kbhit(void) {
++    struct termios oldt, newt;
++    int ch;
++    int oldf;
++    tcgetattr(STDIN_FILENO, &oldt);
++    newt = oldt;
++    newt.c_lflag &= ~(ICANON | ECHO);
++    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
++    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
++    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
++    ch = getchar();
++    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
++    fcntl(STDIN_FILENO, F_SETFL, oldf);
++    if(ch != EOF) {
++        ungetc(ch, stdin);
++        return 1;
++    }
++    return 0;
++}
++
++class QuadrupedController {
++public:
++    QuadrupedController() {
++        // Core parameters
++        body_height_ = 0.28;
++        step_height_normal_ = 0.08;
++        step_height_stairs_ = 0.15; // Higher step for stairs
++        current_step_height_ = step_height_normal_;
++
++        velocity_x_ = 0.0;
++        velocity_yaw_ = 0.0;
++
++        // PID gains
++        kp_stance_ = 80.0;
++        kd_stance_ = 2.0;
++        kp_swing_ = 80.0;
++        kd_swing_ = 2.0;
++
++        // Default standing position [hip, thigh, calf]
++        stand_pos_[FR] = {0.0, 0.75, -1.45}; // Slightly more crouched for stability
++        stand_pos_[FL] = {0.0, 0.75, -1.45};
++        stand_pos_[RR] = {0.0, 0.75, -1.45};
++        stand_pos_[RL] = {0.0, 0.75, -1.45};
++    }
++
++    void Init();
++    void Run();
++
++private:
++    void InitLowCmd();
++    void LowStateMessageHandler(const void* messages);
++    void ControlLoop();
++    void HandleInput();
++
++    // Gait & Kinematics
++    double GetGaitPhase(double t, int leg_id);
++    Vec3 GenerateFootTrajectory(int leg_id, double phase);
++    void InverseKinematics(int leg_id, Vec3 foot_pos, double* joint_angles);
++    void BalanceControl(int leg_id, double* joint_angles);
++
++    // State
++    double dt_ = 0.002;
++    double running_time_ = 0.0;
++    bool is_walking_ = false;
++    bool high_step_mode_ = false; // Stairs mode
++
++    // Commands
++    double target_vel_x_ = 0.0;
++    double target_vel_yaw_ = 0.0;
++
++    std::vector<double> stand_pos_[4];
++
++    // Communication
++    unitree_go::msg::dds_::LowCmd_ low_cmd_{};
++    unitree_go::msg::dds_::LowState_ low_state_{};
++    ChannelPublisherPtr<unitree_go::msg::dds_::LowCmd_> lowcmd_publisher_;
++    ChannelSubscriberPtr<unitree_go::msg::dds_::LowState_> lowstate_subscriber_;
++    ThreadPtr control_thread_;
++};
++
++uint32_t crc32_core(uint32_t* ptr, uint32_t len) {
++    unsigned int xbit = 0;
++    unsigned int data = 0;
++    unsigned int CRC32 = 0xFFFFFFFF;
++    const unsigned int dwPolynomial = 0x04c11db7;
++    for (unsigned int i = 0; i < len; i++) {
++        xbit = 1 << 31;
++        data = ptr[i];
++        for (unsigned int bits = 0; bits < 32; bits++) {
++            if (CRC32 & 0x80000000) {
++                CRC32 <<= 1;
++                CRC32 ^= dwPolynomial;
++            } else {
++                CRC32 <<= 1;
++            }
++            if (data & xbit) CRC32 ^= dwPolynomial;
++            xbit >>= 1;
++        }
++    }
++    return CRC32;
++}
++
++void QuadrupedController::Init() {
++    InitLowCmd();
++    lowcmd_publisher_.reset(new ChannelPublisher<unitree_go::msg::dds_::LowCmd_>(TOPIC_LOWCMD));
++    lowcmd_publisher_->InitChannel();
++    lowstate_subscriber_.reset(new ChannelSubscriber<unitree_go::msg::dds_::LowState_>(TOPIC_LOWSTATE));
++    lowstate_subscriber_->InitChannel(std::bind(&QuadrupedController::LowStateMessageHandler, this, std::placeholders::_1), 1);
++
++    control_thread_ = CreateRecurrentThreadEx("control", UT_CPU_ID_NONE, int(dt_ * 1000000), &QuadrupedController::ControlLoop, this);
++}
++
++void QuadrupedController::InitLowCmd() {
++    low_cmd_.head()[0] = 0xFE;
++    low_cmd_.head()[1] = 0xEF;
++    low_cmd_.level_flag() = 0xFF;
++    low_cmd_.gpio() = 0;
++    for (int i = 0; i < 20; i++) {
++        low_cmd_.motor_cmd()[i].mode() = 0x01;
++        low_cmd_.motor_cmd()[i].q() = PosStopF;
++        low_cmd_.motor_cmd()[i].kp() = 0;
++        low_cmd_.motor_cmd()[i].dq() = VelStopF;
++        low_cmd_.motor_cmd()[i].kd() = 0;
++        low_cmd_.motor_cmd()[i].tau() = 0;
++    }
++}
++
++void QuadrupedController::LowStateMessageHandler(const void* message) {
++    low_state_ = *(unitree_go::msg::dds_::LowState_*)message;
++}
++
++double QuadrupedController::GetGaitPhase(double t, int leg_id) {
++    // Trot: (FR, RL) in sync, (FL, RR) in sync
++    double period = 0.5; // Gait period
++    double phase = fmod(t / period, 1.0);
++    if (leg_id == FL || leg_id == RR) phase = fmod(phase + 0.5, 1.0);
++    return phase;
++}
++
++Vec3 QuadrupedController::GenerateFootTrajectory(int leg_id, double phase) {
++    Vec3 foot_pos;
++    double y_offset = (leg_id == FL || leg_id == RL) ? 0.08 : -0.08;
++    double x_base = (leg_id == FR || leg_id == FL) ? 0.18 : -0.18;
++
++    double step_len = 0.15 * (velocity_x_ / 0.5); // Scale step length by velocity
++
++    // Yaw turn effect (simplified)
++    double turn_offset = (leg_id == FR || leg_id == RR) ? -velocity_yaw_ * 0.05 : velocity_yaw_ * 0.05;
++    x_base += turn_offset;
++
++    if (phase < 0.5) { // Swing
++        double swing = phase * 2.0;
++        foot_pos.x = x_base + step_len * (swing - 0.5); // Move forward
++        foot_pos.y = y_offset;
++        // Parabolic lift
++        foot_pos.z = -body_height_ + current_step_height_ * sin(M_PI * swing);
++    } else { // Stance
++        double stance = (phase - 0.5) * 2.0;
++        foot_pos.x = x_base + step_len * (0.5 - stance); // Move backward relative to body
++        foot_pos.y = y_offset;
++        foot_pos.z = -body_height_;
++    }
++    return foot_pos;
++}
++
++void QuadrupedController::InverseKinematics(int leg_id, Vec3 foot_pos, double* joint_angles) {
++    const double l1 = 0.08;   // thigh
++    const double l2 = 0.213;  // calf
++
++    double hip_sign = (leg_id == FR || leg_id == RR) ? -1.0 : 1.0;
++    joint_angles[0] = atan2(foot_pos.z, foot_pos.y) * hip_sign;
++
++    double yz_dist = sqrt(foot_pos.y * foot_pos.y + foot_pos.z * foot_pos.z);
++    double l = sqrt(foot_pos.x * foot_pos.x + yz_dist * yz_dist);
++    l = std::min(l, l1 + l2 - 0.01);
++    l = std::max(l, fabs(l1 - l2) + 0.01);
++
++    double cos_knee = (l * l - l1 * l1 - l2 * l2) / (2.0 * l1 * l2);
++    joint_angles[2] = -(M_PI - acos(cos_knee));
++
++    double alpha = atan2(-foot_pos.x, -yz_dist);
++    double beta = acos((l1 * l1 + l * l - l2 * l2) / (2.0 * l1 * l));
++    joint_angles[1] = alpha + beta;
++}
++
++void QuadrupedController::BalanceControl(int leg_id, double* joint_angles) {
++    // Simple IMU feedback to keep body level
++    // Roll/Pitch compensation
++    double roll = low_state_.imu_state().rpy()[0];
++    double pitch = low_state_.imu_state().rpy()[1];
++
++    // Compensation gains
++    double k_roll = 0.1;
++    double k_pitch = 0.1;
++
++    double hip_offset = (leg_id == FL || leg_id == RL) ? -roll * k_roll : roll * k_roll;
++    double thigh_offset = (leg_id == FR || leg_id == FL) ? pitch * k_pitch : -pitch * k_pitch;
++
++    joint_angles[0] += hip_offset;
++    joint_angles[1] += thigh_offset;
++}
++
++void QuadrupedController::ControlLoop() {
++    running_time_ += dt_;
++
++    // Smooth velocity update
++    velocity_x_ = velocity_x_ * 0.95 + target_vel_x_ * 0.05;
++    velocity_yaw_ = velocity_yaw_ * 0.95 + target_vel_yaw_ * 0.05;
++
++    // Toggle step height
++    current_step_height_ = high_step_mode_ ? step_height_stairs_ : step_height_normal_;
++
++    // Stand up initialization (2s)
++    if (running_time_ < 2.0) {
++        double ratio = running_time_ / 2.0;
++        for(int i=0; i<12; i++) {
++            int leg = i / 3;
++            int jnt = i % 3;
++            low_cmd_.motor_cmd()[i].q() = stand_pos_[leg][jnt] * ratio;
++            low_cmd_.motor_cmd()[i].kp() = 60.0;
++            low_cmd_.motor_cmd()[i].kd() = 3.0;
++        }
++    } else {
++        // Gait loop
++        for (int leg = 0; leg < 4; leg++) {
++            double phase = GetGaitPhase(running_time_, leg);
++            Vec3 foot_pos = GenerateFootTrajectory(leg, phase);
++
++            double q_des[3];
++            InverseKinematics(leg, foot_pos, q_des);
++            BalanceControl(leg, q_des); // Add balance feedback
++
++            int base = leg * 3;
++            for(int j=0; j<3; j++) {
++                low_cmd_.motor_cmd()[base+j].q() = q_des[j];
++                low_cmd_.motor_cmd()[base+j].dq() = 0;
++                // Stiffen legs in stance, soften in swing
++                bool is_swing = (phase < 0.5);
++                low_cmd_.motor_cmd()[base+j].kp() = is_swing ? kp_swing_ : kp_stance_;
++                low_cmd_.motor_cmd()[base+j].kd() = is_swing ? kd_swing_ : kd_stance_;
++                low_cmd_.motor_cmd()[base+j].tau() = 0;
++            }
++        }
++    }
++
++    low_cmd_.crc() = crc32_core((uint32_t*)&low_cmd_, (sizeof(unitree_go::msg::dds_::LowCmd_) >> 2) - 1);
++    lowcmd_publisher_->Write(low_cmd_);
++}
++
++void QuadrupedController::HandleInput() {
++    if (kbhit()) {
++        char c = getchar();
++        switch(c) {
++            case 'w': target_vel_x_ += 0.1; break;
++            case 's': target_vel_x_ -= 0.1; break;
++            case 'a': target_vel_yaw_ += 0.2; break;
++            case 'd': target_vel_yaw_ -= 0.2; break;
++            case ' ': target_vel_x_ = 0; target_vel_yaw_ = 0; break; // Stop
++            case 'h': high_step_mode_ = !high_step_mode_; // Toggle stair mode
++                      std::cout << (high_step_mode_ ? "High Step (Stairs) ON" : "Normal Step ON") << std::endl;
++                      break;
++            case 'q': exit(0); break;
++        }
++        // Clamp limits
++        if(target_vel_x_ > 0.5) target_vel_x_ = 0.5;
++        if(target_vel_x_ < -0.3) target_vel_x_ = -0.3;
++
++        std::cout << "\rVel X: " << target_vel_x_ << " | Yaw: " << target_vel_yaw_
++                  << " | Stairs: " << (high_step_mode_ ? "ON" : "OFF") << "      " << std::flush;
++    }
++}
++
++void QuadrupedController::Run() {
++    while(true) {
++        HandleInput();
++        usleep(10000); // 100Hz input polling
++    }
++}
++
++int main(int argc, const char** argv) {
++    if (argc < 2) ChannelFactory::Instance()->Init(1, "lo");
++    else ChannelFactory::Instance()->Init(0, argv[1]);
++
++    std::cout << "\n=== Interactive Go2 Controller ===\n";
++    std::cout << " [W/S] Forward/Backward Speed\n";
++    std::cout << " [A/D] Turn Left/Right\n";
++    std::cout << " [SPC] Stop\n";
++    std::cout << " [H]   Toggle High Step (For Stairs)\n";
++    std::cout << " [Q]   Quit\n";
++    std::cout << "----------------------------------\n";
++    std::cout << "Waiting 2s to stand up...\n";
++
++    QuadrupedController controller;
++    controller.Init();
++    controller.Run();
++
++    return 0;
++}

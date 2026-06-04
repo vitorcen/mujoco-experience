@@ -1,4 +1,5 @@
 - [HTML 必须显式 background](feedback_html_explicit_background.md) — body 设白底，VS Code 暗色预览下黑字才能看清
+- [依赖布局+patch约定](feedback_deps_layout_patch_convention.md) — 第三方submodule统一dependencies/;改内文用.patch不用cp;自己fork提交到fork;有auto-commit hook
 - [长训必须分 slice + watcher](feedback_train_with_watcher.md) — 任何 >1h 训练 launcher 不挂分段 eval + 早停就是 bug
 - [watchdog 默认中频interleave+SR早停](feedback_watchdog_interleave_earlystop.md) — INTERLEAVE_STEPS=1500默认;改max_steps毁LR调度,必用StopAtStep回调;EVAL_MAX_STEPS默认400→1200
 - [能续训就续训](feedback_prefer_resume_continue_training.md) — 扩展训练用resume续global_step不重训;同OUTPUT_DIR+调高MAX_STEPS即自动从最新ckpt续(GR00T恒resume_from_checkpoint=True)

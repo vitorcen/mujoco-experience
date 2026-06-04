@@ -1,0 +1,127 @@
+diff --git a/deploy/deploy_mujoco/configs/g1_stairs.yaml b/deploy/deploy_mujoco/configs/g1_stairs.yaml
+new file mode 100644
+index 0000000..40ac2c8
+--- /dev/null
++++ b/deploy/deploy_mujoco/configs/g1_stairs.yaml
+@@ -0,0 +1,26 @@
++# G1 Stairs Climbing Configuration
++policy_path: "{LEGGED_GYM_ROOT_DIR}/deploy/pre_train/g1/motion.pt"
++xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene_terrain.xml"
++
++# Total simulation time
++simulation_duration: 60.0
++# Simulation time step
++simulation_dt: 0.002
++# Controller update frequency (meets the requirement of simulation_dt * controll_decimation=0.02; 50Hz)
++control_decimation: 10
++
++kps: [100, 100, 100, 150, 40, 40, 100, 100, 100, 150, 40, 40]
++kds: [2, 2, 2, 4, 2, 2, 2, 2, 2, 4, 2, 2]
++
++default_angles: [-0.1,  0.0,  0.0,  0.3, -0.2, 0.0, 
++                  -0.1,  0.0,  0.0,  0.3, -0.2, 0.0]
++
++ang_vel_scale: 0.25
++dof_pos_scale: 1.0
++dof_vel_scale: 0.05
++action_scale: 0.25
++cmd_scale: [2.0, 2.0, 0.25]
++num_actions: 12
++num_obs: 47
++
++cmd_init: [0.3, 0, 0]  # Slower speed for stairs (0.3 m/s)
+\ No newline at end of file
+diff --git a/deploy/deploy_mujoco/configs/g1_terrain.yaml b/deploy/deploy_mujoco/configs/g1_terrain.yaml
+new file mode 100644
+index 0000000..d9c1b8a
+--- /dev/null
++++ b/deploy/deploy_mujoco/configs/g1_terrain.yaml
+@@ -0,0 +1,26 @@
++# G1 Terrain & Stairs Configuration
++policy_path: "{LEGGED_GYM_ROOT_DIR}/deploy/pre_train/g1/motion.pt"
++xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/g1_description/scene_terrain.xml"
++
++# Total simulation time
++simulation_duration: 60.0
++# Simulation time step
++simulation_dt: 0.002
++# Controller update frequency (meets the requirement of simulation_dt * controll_decimation=0.02; 50Hz)
++control_decimation: 10
++
++kps: [100, 100, 100, 150, 40, 40, 100, 100, 100, 150, 40, 40]
++kds: [2, 2, 2, 4, 2, 2, 2, 2, 2, 4, 2, 2]
++
++default_angles: [-0.1,  0.0,  0.0,  0.3, -0.2, 0.0, 
++                  -0.1,  0.0,  0.0,  0.3, -0.2, 0.0]
++
++ang_vel_scale: 0.25
++dof_pos_scale: 1.0
++dof_vel_scale: 0.05
++action_scale: 0.25
++cmd_scale: [2.0, 2.0, 0.25]
++num_actions: 12
++num_obs: 47
++
++cmd_init: [0.5, 0, 0]
+\ No newline at end of file
+diff --git a/resources/robots/g1_description/scene_terrain.xml b/resources/robots/g1_description/scene_terrain.xml
+new file mode 100644
+index 0000000..525940e
+--- /dev/null
++++ b/resources/robots/g1_description/scene_terrain.xml
+@@ -0,0 +1,55 @@
++<mujoco model="g1 terrain scene">
++  <include file="g1_12dof.xml"/>
++
++  <statistic center="1.0 0.7 1.0" extent="0.8"/>
++
++  <visual>
++    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
++    <rgba haze="0.15 0.25 0.35 1"/>
++    <global azimuth="-130" elevation="-20"/>
++  </visual>
++
++  <asset>
++    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
++    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
++    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
++  </asset>
++
++  <worldbody>
++    <light pos="1 0 3.5" dir="0 0 -1" directional="true"/>
++    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
++
++    <!-- Obstacles for terrain -->
++    <geom pos="2.0 0.0 0.1" type="box" size="0.5 0.75 0.1" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="2.5 0.0 0.25" type="cylinder" size="0.5 0.25 0.25" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.0 2.0 0.5" type="box" size="1.5 0.75 0.05" quat="0.968912421710645 0.0 -0.24740395925452296 0.0"/>
++
++    <!-- Stairs 1: y=3.0, 10 steps, height 0.15m each -->
++    <geom pos="1.5 3.0 0.075" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="1.8 3.0 0.225" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="2.1 3.0 0.375" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="2.4 3.0 0.525" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="2.7 3.0 0.675" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.0 3.0 0.825" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.3 3.0 0.975" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.6 3.0 1.125" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.9 3.0 1.275" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="4.2 3.0 1.425" type="box" size="0.15 0.75 0.075" quat="1.0 0.0 0.0 0.0"/>
++
++    <!-- Stairs 2: y=5.0, 8 steps, height 0.12m each (gentler) -->
++    <geom pos="1.5 5.0 0.06" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="1.8 5.0 0.18" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="2.1 5.0 0.30" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="2.4 5.0 0.42" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="2.7 5.0 0.54" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.0 5.0 0.66" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.3 5.0 0.78" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++    <geom pos="3.6 5.0 0.90" type="box" size="0.15 0.75 0.06" quat="1.0 0.0 0.0 0.0"/>
++
++    <!-- Random rocks/obstacles (simplified from H1 scene) -->
++    <geom pos="-1.0 3.0 0.15" type="box" size="0.25 0.25 0.15" quat="0.99 0.1 0.05 0.05"/>
++    <geom pos="-0.5 4.5 0.12" type="box" size="0.22 0.22 0.12" quat="0.98 0.08 0.08 0.08"/>
++    <geom pos="0.5 2.5 0.18" type="box" size="0.28 0.28 0.18" quat="0.97 0.12 0.06 0.06"/>
++    <geom pos="1.0 4.0 0.20" type="box" size="0.30 0.25 0.20" quat="0.99 0.05 0.10 0.05"/>
++  </worldbody>
++</mujoco>

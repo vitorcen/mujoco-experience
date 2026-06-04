@@ -125,7 +125,7 @@ mujoco-experience/
 ├── rsl_rl/                    # RSL 强化学习库
 ├── scripts/                   # Python 演示与控制脚本
 ├── doc/                       # 文档资产 (图片等)
-├── patch_files/               # 子模块补丁
+├── patches/                   # 子模块本地改动 (.patch + apply_patches.sh)
 ├── DEMO.ipynb                 # ▶ C++ 仿真器指南
 ├── SCRIPTS.ipynb              # ▶ Python 脚本指南
 ├── UNITREE.ipynb              # ▶ Unitree 仿真指南
