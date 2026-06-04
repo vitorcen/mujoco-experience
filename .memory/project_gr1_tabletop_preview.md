@@ -26,10 +26,26 @@ metadata:
 ## 安装踩坑链(已解决,写进 install_robocasa_gr1_env.sh)
 **gr00t 是 uv-native 包**:pyproject 声明部署重包为硬依赖但预编译 wheel 走 `[tool.uv.sources]`,**pip 不认** → `pip install -e .[base]` 对这些包逐个源码编译失败。踩坑顺序:① 一次性大 resolve **段错误**;② flash-attn 源码编译失败;③ tensorrt-cu12 源码编译失败。**最终解法**:(a) torch==2.5.1+cu124 先装(gr00t 那套 torchcodec==0.4.0 配 2.5,非 pyproject 写的 2.7.1);(b) flash-attn 用预编译 wheel `flash_attn-2.7.4.post1+cu12torch2.5cxx11abiFALSE-cp310` 装(不编译不占 GPU);(c) 从 pyproject 提取运行时依赖、grep -v 掉 `tensorrt/deepspeed/onnx/triton/flash-attn/torch` 装上;(d) `pip install --no-deps -e gr00t` 装本体。**有意跳过 tensorrt-cu12/deepspeed/onnx/triton**(纯 ONNX/TRT 部署+多卡训练,预览/eval 不需要)。
 
-## 状态(2026-05-31 已完成主体)
-- ✅ **env robocasa_gr1 装好(已验证 ALL_OK)**:`import gr00t,robocasa,robocasa.environments.tabletop,flash_attn,robosuite,torch` 全过。torch 2.5.1+cu124 / flash-attn 2.7.4.post1 / robosuite 1.5.1 / robocasa(gr1)0.2.0(mujoco 3.2.6/numpy 1.26.4)。
-- ✅ youliangtan ckpt 7.6G → `~/.cache/robocasa_gr1/checkpoints/gr00t-n1.5-tabletop-posttrain`
-- ✅ 6 个 core clip → `~/.cache/robocasa_gr1/preview_clips/`
-- ✅ **tabletop 3D 资产已下好**(status: sketchfab:True lightwheel:True,objects 目录 7.8G)。objaverse 子项(utexas.box.com zip)下载/解压失败,但被 `download_and_extract_zip` 的 `try/except` 吞掉、不阻断,textures/fixtures/generative_textures/lightwheel/sketchfab 都成功。(注:install 脚本第7段只检查 sketchfab+lightwheel 存在即跳过,符合现状。)
-- driver status 字段 `eval_gr00t_robocasa.py=False`:§5 实际用上游 `gr00t/eval/rollout_policy.py`(配方B,见上),driver 里那个路径名是旧的,§5 跑前要对齐(§5 需 N1.7 ROBOCASA_GR1_TABLETOP ckpt + GPU,非 youliangtan)。
-- **render/§5 eval 没跑(GPU 让给 MimicGen 训练)**。
+## 状态(2026-06-02 闭环 eval 已跑通 ✅)
+- ✅ **env robocasa_gr1 装好**:torch 2.5.1+cu124 / flash-attn 2.7.4.post1 / robosuite 1.5.1 / robocasa(gr1)0.2.0(mujoco 3.2.6/numpy 1.26.4)。
+- ✅ youliangtan ckpt 7.6G → `~/.cache/robocasa_gr1/checkpoints/gr00t-n1.5-tabletop-posttrain`,6 个 core clip,tabletop 3D 资产全下好(sketchfab+lightwheel)。
+
+### 🎯 闭环 eval 跑通(配方A,youliangtan N1.5)— PnPCupToDrawerClose **SR 0.40 (4/10)**,~27s/ep
+**根因发现**:`robocasa_gr1` env 是用 **N1.7** Isaac-GR00T main 建的(无 `gr00t.eval.simulation`/`eval.robot`,只有 uv 版 run_gr00t_server),但下载的 youliangtan 是 **N1.5** + 配方A 是 N1.5 → 版本错配,`robocasa_gr1_demo.py eval` 指向的脚本根本不存在。配方A 的 client `simulation_service.py` 上游 main 已删,只在隔壁 `isaaclab-experience/dependencies/Isaac-GR00T-N1.5` 还有。
+**解法**:新建独立 env **`robocasa_gr1_n15`**(`scripts/install_robocasa_gr1_n15_env.sh`):本仓 **plain `dependencies/Isaac-GR00T`(N1.5 "GR00T N1.5 for RoboCasa" 树,有 `gr00t.eval.simulation`)+ gr1 robocasa fork + robosuite1.5.1**,共存一个 env。🔴 **不能塞进 `robocasa_gr00t`**(权威 kitchen benchmark env,gr1 fork 的 numpy1.26.4/mujoco3.2.6 pin 会污染)。
+- 跑法:`python3 scripts/robocasa_gr1_demo.py eval <TASK> --n-episodes N --n-envs 1`。server=`dependencies/Isaac-GR00T/scripts/inference_service.py --server --model_path <ck> --embodiment_tag gr1 --data_config fourier_gr1_arms_waist`(tyro,**下划线** args),client=vendored `scripts/_gr1_simulation_service.py --client`。两进程同 env,ZMQ port 默认 5556,offscreen mp4 → `~/.cache/robocasa_gr1/eval_videos/`。
+- **三个非显然坑(都已修在 demo/client 里)**:
+  1. **gr1_unified 没注册** → client 必须 `import robocasa.utils.gym_utils`(注册 197 个 env);plain `simulation.py` 只 bare `import robocasa` 不触发。
+  2. **`MUJOCO_GL=egl` 下 robocasa import ~25% flaky**(SIGSEGV 或伪 AttributeError `'str' object has no attribute ...Env`,都是 EGL GL-init 不稳)→ server **轮询 "Server is ready" 标记 + 崩溃重试**,client **import 阶段崩溃也重试**(崩在 import 前,重试幂等;server 不重载)。
+  3. **plain `simulation.py` 是 kitchen 变体**`_create_single_env` 传 `split=` → gr1 env creator 不收 → TypeError。client 里 **monkeypatch `_sim.gym.make` 去掉 split**(gr1-tabletop 变体本就不传 split)。n_envs>1 用 spawn 会每 worker 重撞 EGL flaky,故默认 n_envs=1(SyncVectorEnv)。
+- 对照:N1.7 官方 benchmark 此任务报 35%,N1.5 youliangtan 40% 在合理区间。
+- ✅ 已 VLC 在 DISPLAY=:0 循环播放 `eval_videos/PnPCupToDrawer_ep01_success.mp4` 给用户看。
+
+### 🖥️ 实时 on-screen GUI viewer(`gui` 子命令,2026-06-02 加)
+用户要"边推理边看机器人动"(非回放 mp4)。robosuite/robocasa 底层是 MuJoCo → 用原生 `mujoco.viewer.launch_passive` 开窗口。
+- 新文件 `scripts/_gr1_gui_client.py` + driver 加 `gui` 子命令。跑法:`DISPLAY=:0 python3 scripts/robocasa_gr1_demo.py gui <TASK> --n-episodes 3 --step-delay 0.03 --camera egoview`。
+- **关键招**:复用 `SimulationInferenceClient.setup_environment`(n_envs=1→SyncVectorEnv 进程内,能拿到 inner env),从 `base.env.sim.model._model/.data._data` 取原生 mjModel/mjData → `launch_passive`。**MUJOCO_GL=egl 仍给 policy 喂离屏 camera obs;viewer 自己开 GLFW 窗口**(两个 GL context 共享同一物理状态,和 OpenCabinet GUI 一个套路)。
+- **平滑动作**:patch `base.step`(MultiStepWrapper 每 sim 步调它)→ 每步 `viewer.sync()`+`step_delay`,否则 16 步跳一次。
+- **相机坑(用户反馈)**:passive viewer 默认自由相机生成在场景外(看到房间外面)。**锁定到 model 相机**:`viewer.cam.type=mjCAMERA_FIXED; viewer.cam.fixedcamid=mj_name2id(...,'egoview')`。该 env 11 个相机,policy 用的是 **`egoview`(id 8,机器人头部第一人称=policy 视角)**;想看机器人全身用 `robot0_behindhead`/`robot0_agentview_center`/`robot0_frontview`。`--camera free` 保留轨道相机。
+- GUI client 也吃那个 **flaky EGL import 崩**(~25%),cmd_gui 同样重试(崩在开窗前,幂等)。
+- **配方B(N1.7 uv+ROBOCASA_GR1_TABLETOP)仍未跑**:需 N1.7 finetune 权重(HF 无现成),非 youliangtan。

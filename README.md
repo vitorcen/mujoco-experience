@@ -26,12 +26,12 @@ _GR00T-N1.7-3B single-task fine-tune; MimicGen two-stage lifts SR to 53.3% (fair
 
 从 N1.7-3B base 在 RoboCasa OpenCabinet 上微调（单卡 4090）。两条路线：
 
-1. **human-only**:500 条人类遥操作数据，seed-locked 精扫峰值 **50%**（step 11k）——保留在 HF 分支 [`human500-ckpt-11000`](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet/tree/human500-ckpt-11000)。
+1. **human-only**:500 条人类遥操作数据，seed-locked 精扫峰值 **50%**（step 11k）——保留在 HF 分支 [`human500-ckpt-11000`](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet)。
 2. **MimicGen 两阶段 ⭐**:阶段一用 8644 条 MimicGen 生成 episode + 500 human 原生混合（GR00T data factory 按权重混，不做物理合并）预训到 ~34k；阶段二回纯 human 微调对齐评测分布，峰值 **step 14000**。公平 30/30（同 seed 同款橱柜、DNF 重试凑满、零剔除偏置）**53.3%**——现为 HF `main` 模型 [HF model card](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet)。
 
 公平榜单(1200 步 / `n_action_steps=16` / seed_base=0)：**N1.5-multitask 70% > N1.7-MG2stage(14k) 53.3% > pi0.5 23.3%**。MimicGen 较 human-only 提升真实约 10 点，但**未超**大得多的多任务 N1.5。详见 [`robocasa-training`](https://github.com/vitorcen/robocasa-training) 与 [`benchmark/leaderboard.md`](https://github.com/vitorcen/robocasa-training/blob/main/benchmark/leaderboard.md)。
 
-_Fine-tuned from N1.7-3B on OpenCabinet (single 4090). **(1) human-only**: 500 demos, seed-locked sweep peaks at 50% (step 11k), kept on HF branch [`human500-ckpt-11000`](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet/tree/human500-ckpt-11000). **(2) MimicGen two-stage ⭐**: stage-1 native-mix pretrain on 8644 MimicGen episodes + 500 human (GR00T's data factory mixes by weight — no physical merge) to ~34k; stage-2 pure-human finetune re-aligns to the eval distribution, peak at step 14000 = **53.3%** on a fair 30/30 (same seed-locked scenes, DNFs retried to completion, zero exclusion bias) — now the HF `main` model. Fair leaderboard: **N1.5-multitask 70% > N1.7-MG2stage 53.3% > pi0.5 23.3%**. MimicGen adds a real ~10 points over human-only but does **not** overtake the much larger multi-task N1.5._
+_Fine-tuned from N1.7-3B on OpenCabinet (single 4090). **(1) human-only**: 500 demos, seed-locked sweep peaks at 50% (step 11k), kept on HF branch [`human500-ckpt-11000`](https://huggingface.co/wsagi/GR00T-N1.7-RoboCasa-OpenCabinet). **(2) MimicGen two-stage ⭐**: stage-1 native-mix pretrain on 8644 MimicGen episodes + 500 human (GR00T's data factory mixes by weight — no physical merge) to ~34k; stage-2 pure-human finetune re-aligns to the eval distribution, peak at step 14000 = **53.3%** on a fair 30/30 (same seed-locked scenes, DNFs retried to completion, zero exclusion bias) — now the HF `main` model. Fair leaderboard: **N1.5-multitask 70% > N1.7-MG2stage 53.3% > pi0.5 23.3%**. MimicGen adds a real ~10 points over human-only but does **not** overtake the much larger multi-task N1.5._
 
 ### 通用信息 / At a glance
 
