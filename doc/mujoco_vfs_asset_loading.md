@@ -61,8 +61,8 @@ mujoco.MjModel.from_xml_string(xml_string, assets=assets_dict)
   - 把 `../unitree_hfield.png` 直接替换为 `assets/unitree_hfield.png`
 
 - **2）把地形图片从正确目录读出来**
-  - Go2 的图片实际在：`unitree_mujoco/unitree_robots/go2/height_field.png`
-  - 不是在 `unitree_mujoco/unitree_robots/` 根目录
+  - Go2 的图片实际在：`dependencies/unitree_mujoco/unitree_robots/go2/height_field.png`
+  - 不是在 `dependencies/unitree_mujoco/unitree_robots/` 根目录
 
 - **3）在 VFS 里“双路径注册”**
   - 同时注册：

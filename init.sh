@@ -87,7 +87,7 @@ run_pip() {
 
 # Helper to check import in the correct environment.
 # IMPORTANT: cd to /tmp first so local directories in the project root
-# (e.g. ./mujoco from the submodule) are not picked up as namespace packages
+# (e.g. ./dependencies/mujoco from the submodule) are not picked up as namespace packages
 # and don't shadow real pip-installed packages.
 check_import() {
     local module=$1

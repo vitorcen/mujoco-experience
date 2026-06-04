@@ -203,7 +203,7 @@ def build_g1_ctrl_traj(stand_ctrl: np.ndarray, t: float) -> np.ndarray:
 def main():
     # 1. 动态生成 G1 场景 XML (带地面)
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    menagerie_dir = os.path.join(project_root, "mujoco_menagerie")
+    menagerie_dir = os.path.join(project_root, "dependencies", "mujoco_menagerie")
     g1_dir = os.path.join(menagerie_dir, "unitree_g1")
     
     # 我们创建一个临时的 scene xml 字符串，include g1.xml

@@ -13,8 +13,8 @@ SUDO_PASS="Abc.123"
 MUJOCO_VERSION="3.2.6"
 UNITREE_SDK2_DIR="/opt/unitree_robotics"
 MUJOCO_DIR="$HOME/.mujoco"
-PROJECT_DIR="$HOME/work/mujoco-experience/unitree_mujoco"
-RL_GYM_DIR="$HOME/work/mujoco-experience/unitree_rl_gym"
+PROJECT_DIR="$HOME/work/mujoco-experience/dependencies/unitree_mujoco"
+RL_GYM_DIR="$HOME/work/mujoco-experience/dependencies/unitree_rl_gym"
 RSL_RL_DIR="$HOME/work/mujoco-experience/rsl_rl"
 
 echo_info() {

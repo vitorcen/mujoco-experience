@@ -1,9 +1,9 @@
 <mujoco model="panda scene">
   <!-- 显式指定 mesh 资源目录，解决相对路径问题 -->
-  <compiler angle="radian" meshdir="../mujoco_menagerie/franka_emika_panda/assets" autolimits="true"/>
+  <compiler angle="radian" meshdir="../dependencies/mujoco_menagerie/franka_emika_panda/assets" autolimits="true"/>
 
   <!-- 引入 Menagerie 中的 Panda 机器人 -->
-  <include file="../mujoco_menagerie/franka_emika_panda/panda.xml"/>
+  <include file="../dependencies/mujoco_menagerie/franka_emika_panda/panda.xml"/>
 
   <statistic center="0.3 0 0.4" extent="0.8"/>
 

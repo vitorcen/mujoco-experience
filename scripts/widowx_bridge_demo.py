@@ -96,7 +96,7 @@ class OpenVLAController:
 # ---- Scene loader via VFS ----
 def load_scene_with_vfs(xml_path):
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    wx_dir = os.path.join(project_root, "mujoco_menagerie", "trossen_wx250s")
+    wx_dir = os.path.join(project_root, "dependencies", "mujoco_menagerie", "trossen_wx250s")
 
     with open(os.path.join(project_root, xml_path), "r") as f:
         xml = f.read()

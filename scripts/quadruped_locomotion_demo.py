@@ -57,7 +57,7 @@ def download_policy():
 
 def build_scene_with_ball():
     """Load Go2 scene with a red target ball, via VFS to flatten includes."""
-    go2_dir = os.path.join(_PROJECT_ROOT, "mujoco_menagerie", "unitree_go2")
+    go2_dir = os.path.join(_PROJECT_ROOT, "dependencies", "mujoco_menagerie", "unitree_go2")
     with open(os.path.join(go2_dir, "scene.xml")) as f:
         scene_xml = f.read()
     # Place a red target ball in front of the dog.

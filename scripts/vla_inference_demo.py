@@ -135,7 +135,7 @@ class OpenVLAController:
 def load_panda_scene_with_vfs(xml_path):
     """使用 VFS 加载 Panda 场景，解决路径依赖问题"""
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    menagerie_dir = os.path.join(project_root, "mujoco_menagerie")
+    menagerie_dir = os.path.join(project_root, "dependencies", "mujoco_menagerie")
     panda_dir = os.path.join(menagerie_dir, "franka_emika_panda")
     
     # 1. 读取主 XML

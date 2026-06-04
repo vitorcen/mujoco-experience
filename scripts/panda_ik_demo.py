@@ -22,7 +22,7 @@ def main():
         print(f"Loading model: {MODEL_PATH}")
 
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        menagerie_dir = os.path.join(project_root, "mujoco_menagerie")
+        menagerie_dir = os.path.join(project_root, "dependencies", "mujoco_menagerie")
         panda_dir = os.path.join(menagerie_dir, "franka_emika_panda")
         panda_xml_path = os.path.join(panda_dir, "panda.xml")
         panda_assets_dir = os.path.join(panda_dir, "assets")

@@ -87,12 +87,12 @@ fi
 
 echo "📦 Checking submodules..."
 # Check if mujoco dir exists and is not empty
-if [ ! -d "mujoco" ] || [ -z "$(ls -A mujoco)" ]; then
+if [ ! -d "dependencies/mujoco" ] || [ -z "$(ls -A dependencies/mujoco)" ]; then
     echo "   Initializing mujoco submodule..."
     git submodule update --init --recursive
 else
     # Check if CMakeLists.txt exists, if not, it's likely an incomplete checkout
-    if [ ! -f "mujoco/CMakeLists.txt" ]; then
+    if [ ! -f "dependencies/mujoco/CMakeLists.txt" ]; then
         echo "   Updating mujoco submodule..."
         git submodule update --init --recursive
     else
@@ -130,13 +130,13 @@ echo "-----------------------------------"
 echo "🎉 Build complete!"
 echo ""
 echo "Executable locations:"
-echo "   Simulate:  $BUILD_DIR/mujoco/bin/simulate"
-echo "   Test libs: $BUILD_DIR/mujoco/lib/"
+echo "   Simulate:  $BUILD_DIR/dependencies/mujoco/bin/simulate"
+echo "   Test libs: $BUILD_DIR/dependencies/mujoco/lib/"
 echo ""
 echo "To run the simulator (Examples):"
-echo "   ./$BUILD_DIR/mujoco/bin/simulate ./mujoco/model/humanoid/humanoid.xml"
-echo "   ./$BUILD_DIR/mujoco/bin/simulate ./mujoco/model/car/car.xml"
-echo "   ./$BUILD_DIR/mujoco/bin/simulate ./mujoco/model/cards/cards.xml"
-echo "   ./$BUILD_DIR/mujoco/bin/simulate ./mujoco/model/flex/flag.xml"
-echo "   ./$BUILD_DIR/mujoco/bin/simulate ./mujoco/model/mug/mug.xml"
+echo "   ./$BUILD_DIR/dependencies/mujoco/bin/simulate ./dependencies/mujoco/model/humanoid/humanoid.xml"
+echo "   ./$BUILD_DIR/dependencies/mujoco/bin/simulate ./dependencies/mujoco/model/car/car.xml"
+echo "   ./$BUILD_DIR/dependencies/mujoco/bin/simulate ./dependencies/mujoco/model/cards/cards.xml"
+echo "   ./$BUILD_DIR/dependencies/mujoco/bin/simulate ./dependencies/mujoco/model/flex/flag.xml"
+echo "   ./$BUILD_DIR/dependencies/mujoco/bin/simulate ./dependencies/mujoco/model/mug/mug.xml"
 echo ""

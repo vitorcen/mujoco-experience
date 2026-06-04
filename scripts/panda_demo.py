@@ -3,7 +3,7 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 
-MODEL_PATH = './mujoco_menagerie/franka_emika_panda/scene.xml'
+MODEL_PATH = './dependencies/mujoco_menagerie/franka_emika_panda/scene.xml'
 
 def main():
     print(f"Loading Panda model: {MODEL_PATH}")
@@ -11,7 +11,7 @@ def main():
         model = mujoco.MjModel.from_xml_path(MODEL_PATH)
         data = mujoco.MjData(model)
     except ValueError:
-        print("Error: Model not found. Did you run 'git submodule update --init mujoco_menagerie'?")
+        print("Error: Model not found. Did you run 'git submodule update --init dependencies/mujoco_menagerie'?")
         return
 
     # Franka Panda 有 7 个关节 + 2 个 gripper 指头

@@ -11,7 +11,7 @@ import imageio
 # 配置区域
 # ===========================
 # 崎岖地形场景
-SCENE_XML_PATH = "unitree_mujoco/unitree_robots/go2/scene_terrain.xml"
+SCENE_XML_PATH = "dependencies/unitree_mujoco/unitree_robots/go2/scene_terrain.xml"
 
 # 简易控制器参数
 GAIT_FREQ = 2.5
@@ -72,7 +72,7 @@ def load_scene_with_vfs():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     # 路径定义
-    go2_dir = os.path.join(project_root, "unitree_mujoco", "unitree_robots", "go2")
+    go2_dir = os.path.join(project_root, "dependencies", "unitree_mujoco", "unitree_robots", "go2")
     scene_path = os.path.join(go2_dir, "scene_terrain.xml")
     
     # 1. 读取主 XML

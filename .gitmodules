@@ -1,26 +1,26 @@
 [submodule "mujoco"]
-	path = mujoco
+	path = dependencies/mujoco
 	url = https://github.com/google-deepmind/mujoco.git
 [submodule "mujoco_menagerie"]
-	path = mujoco_menagerie
+	path = dependencies/mujoco_menagerie
 	url = https://github.com/google-deepmind/mujoco_menagerie.git
 [submodule "unitree_mujoco"]
-	path = unitree_mujoco
+	path = dependencies/unitree_mujoco
 	url = https://github.com/unitreerobotics/unitree_mujoco.git
 [submodule "DeepMimic_mujoco"]
-	path = DeepMimic_mujoco
+	path = dependencies/DeepMimic_mujoco
 	url = https://github.com/mingfeisun/DeepMimic_mujoco.git
 [submodule "unitree_sdk2_python"]
-	path = unitree_sdk2_python
+	path = dependencies/unitree_sdk2_python
 	url = https://github.com/unitreerobotics/unitree_sdk2_python.git
 [submodule "unitree_rl_gym"]
-	path = unitree_rl_gym
+	path = dependencies/unitree_rl_gym
 	url = https://github.com/unitreerobotics/unitree_rl_gym.git
 [submodule "pi05_minimax_vla"]
 	path = pi05_minimax_vla
 	url = git@github.com:vitorcen/minimax_vla.git
 [submodule "KungfuBot"]
-	path = KungfuBot
+	path = dependencies/KungfuBot
 	url = https://github.com/TeleHuman/PBHC.git
 [submodule "dependencies/robocasa"]
 	path = dependencies/robocasa
@@ -36,3 +36,9 @@
 	path = dependencies/openpi
 	url = https://github.com/Physical-Intelligence/openpi.git
 	branch = main
+[submodule "dependencies/Isaac-GR00T-gr1"]
+	path = dependencies/Isaac-GR00T-gr1
+	url = https://github.com/NVIDIA/Isaac-GR00T.git
+[submodule "dependencies/robocasa-gr1-tabletop-tasks"]
+	path = dependencies/robocasa-gr1-tabletop-tasks
+	url = https://github.com/robocasa/robocasa-gr1-tabletop-tasks.git

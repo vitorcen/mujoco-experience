@@ -3,7 +3,7 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 
-MODEL_PATH = './mujoco_menagerie/franka_fr3/scene.xml'
+MODEL_PATH = './dependencies/mujoco_menagerie/franka_fr3/scene.xml'
 
 def main():
     print(f"Loading FR3 model: {MODEL_PATH}")
@@ -11,7 +11,7 @@ def main():
         model = mujoco.MjModel.from_xml_path(MODEL_PATH)
         data = mujoco.MjData(model)
     except ValueError:
-        print("Error: Model not found. Did you run 'git submodule update --init mujoco_menagerie'?")
+        print("Error: Model not found. Did you run 'git submodule update --init dependencies/mujoco_menagerie'?")
         return
 
     # FR3 与 Panda 结构类似

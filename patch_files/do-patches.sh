@@ -13,6 +13,6 @@ echo "=== Applying patches to mujoco_menagerie ==="
 # Patch trs_so_arm100 model
 echo "Patching trs_so_arm100..."
 cp -rf "$SCRIPT_DIR/mujoco_menagerie/trs_so_arm100/"* \
-       "$PROJECT_ROOT/mujoco_menagerie/trs_so_arm100/"
+       "$PROJECT_ROOT/dependencies/mujoco_menagerie/trs_so_arm100/"
 
 echo "✓ Patches applied successfully"

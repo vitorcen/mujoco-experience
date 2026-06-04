@@ -102,21 +102,27 @@ _Interactive guides — runnable Jupyter notebooks_
 
 ```
 mujoco-experience/
-├── mujoco/                    # MuJoCo 源码 (submodule)
-│   ├── model/                 # 内置示例模型 (XML)
-│   ├── sample/                # C++ 示例代码
-│   ├── simulate/              # 图形化仿真器源码
-│   ├── python/                # Python 绑定 (含 tutorial/LQR/rollout 等 ipynb)
-│   └── mjx/                   # MJX (JAX 加速版，含 training_apg.ipynb)
-├── mujoco_menagerie/          # 第三方机器人模型库 (submodule)
-├── unitree_mujoco/            # Unitree 仿真器 C++ 版 (submodule)
-├── unitree_sdk2_python/       # Unitree SDK2 Python 绑定 (submodule)
-├── unitree_rl_gym/            # Unitree 强化学习训练环境 (submodule)
-├── DeepMimic_mujoco/          # DeepMimic 动作模仿 (submodule)
-├── rsl_rl/                    # RSL 强化学习库 (submodule)
-├── pi05_minimax_vla/          # Pi05 VLA 模型 (submodule)
-├── dependencies/              # 重资产 / 锁版本子模块隔离区
-│   └── robocasa/              # RoboCasa (submodule，独立 conda env)
+├── dependencies/              # 第三方依赖隔离区 (third-party submodules)
+│   ├── mujoco/                # MuJoCo 源码 (submodule)
+│   │   ├── model/             # 内置示例模型 (XML)
+│   │   ├── sample/            # C++ 示例代码
+│   │   ├── simulate/          # 图形化仿真器源码
+│   │   ├── python/            # Python 绑定 (含 tutorial/LQR/rollout 等 ipynb)
+│   │   └── mjx/               # MJX (JAX 加速版，含 training_apg.ipynb)
+│   ├── mujoco_menagerie/      # 第三方机器人模型库 (submodule)
+│   ├── unitree_mujoco/        # Unitree 仿真器 C++ 版 (submodule)
+│   ├── unitree_sdk2_python/   # Unitree SDK2 Python 绑定 (submodule)
+│   ├── unitree_rl_gym/        # Unitree 强化学习训练环境 (submodule)
+│   ├── DeepMimic_mujoco/      # DeepMimic 动作模仿 (submodule)
+│   ├── KungfuBot/             # KungfuBot (PBHC) G1 功夫策略 (submodule)
+│   ├── robocasa/              # RoboCasa (submodule，独立 conda env)
+│   ├── Isaac-GR00T/           # GR00T N1.5 RoboCasa eval (名为 Isaac 但跑 MuJoCo) (submodule)
+│   ├── Isaac-GR00T-gr1/       # GR00T N1.7 上游 (GR1 桌面任务) (submodule)
+│   ├── robocasa-gr1-tabletop-tasks/  # GR1 桌面任务 (submodule)
+│   └── openpi/                # OpenPI Pi0.5 (submodule)
+├── pi05_minimax_vla/          # Pi05 VLA 模型 (vitorcen fork, submodule)
+├── robocasa-training/         # RoboCasa 训练 (vitorcen fork, submodule)
+├── rsl_rl/                    # RSL 强化学习库
 ├── scripts/                   # Python 演示与控制脚本
 ├── doc/                       # 文档资产 (图片等)
 ├── patch_files/               # 子模块补丁
@@ -171,8 +177,8 @@ conda activate mujoco
 **① 可视化预览任意 MJCF 模型**
 
 ```bash
-./build/bin/simulate ./mujoco/model/humanoid/humanoid.xml
-./build/bin/simulate ./mujoco_menagerie/unitree_go1/scene.xml
+./build/dependencies/mujoco/bin/simulate ./dependencies/mujoco/model/humanoid/humanoid.xml
+./build/dependencies/mujoco/bin/simulate ./dependencies/mujoco_menagerie/unitree_go1/scene.xml
 ```
 
 👉 完整模型列表与操作键位见 [`DEMO.ipynb`](./DEMO.ipynb)
@@ -180,9 +186,9 @@ conda activate mujoco
 **② Unitree 机器人 sim-to-real**
 
 ```bash
-./unitree_mujoco/simulate/build/unitree_mujoco -r go2 -s scene_terrain.xml
+./dependencies/unitree_mujoco/simulate/build/unitree_mujoco -r go2 -s scene_terrain.xml
 # 另开终端
-./unitree_mujoco/example/cpp/build/stand_go2
+./dependencies/unitree_mujoco/example/cpp/build/stand_go2
 ```
 
 👉 控制策略、ROS2 集成见 [`UNITREE.ipynb`](./UNITREE.ipynb)
@@ -211,12 +217,12 @@ python scripts/quadruped_locomotion_demo.py --vx 0.5 --wz 0.5  # 边走边转
 
 ## 学习路径建议
 
-1. **入门** → [`mujoco/python/tutorial.ipynb`](./mujoco/python/tutorial.ipynb)（官方 Python 教程）
+1. **入门** → [`dependencies/mujoco/python/tutorial.ipynb`](./dependencies/mujoco/python/tutorial.ipynb)（官方 Python 教程）
 2. **可视化把玩** → [`DEMO.ipynb`](./DEMO.ipynb) 跑各种 XML 模型
-3. **控制理论** → [`mujoco/python/LQR.ipynb`](./mujoco/python/LQR.ipynb) · [`least_squares.ipynb`](./mujoco/python/least_squares.ipynb) · [`rollout.ipynb`](./mujoco/python/rollout.ipynb)
-4. **建模 API** → [`mujoco/python/mjspec.ipynb`](./mujoco/python/mjspec.ipynb)
-5. **GPU 加速训练** → [`mujoco/mjx/tutorial.ipynb`](./mujoco/mjx/tutorial.ipynb) · [`training_apg.ipynb`](./mujoco/mjx/training_apg.ipynb)
-6. **Menagerie 模型库** → [`mujoco_menagerie/tutorial.ipynb`](./mujoco_menagerie/tutorial.ipynb)
+3. **控制理论** → [`dependencies/mujoco/python/LQR.ipynb`](./dependencies/mujoco/python/LQR.ipynb) · [`least_squares.ipynb`](./dependencies/mujoco/python/least_squares.ipynb) · [`rollout.ipynb`](./dependencies/mujoco/python/rollout.ipynb)
+4. **建模 API** → [`dependencies/mujoco/python/mjspec.ipynb`](./dependencies/mujoco/python/mjspec.ipynb)
+5. **GPU 加速训练** → [`dependencies/mujoco/mjx/tutorial.ipynb`](./dependencies/mujoco/mjx/tutorial.ipynb) · [`training_apg.ipynb`](./dependencies/mujoco/mjx/training_apg.ipynb)
+6. **Menagerie 模型库** → [`dependencies/mujoco_menagerie/tutorial.ipynb`](./dependencies/mujoco_menagerie/tutorial.ipynb)
 7. **机器人实战** → [`UNITREE.ipynb`](./UNITREE.ipynb) → [`SCRIPTS.ipynb`](./SCRIPTS.ipynb)
 8. **VLA 前沿** → [`PI05.ipynb`](./PI05.ipynb) + `scripts/quadruped_locomotion_demo.py`
 

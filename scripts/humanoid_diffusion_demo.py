@@ -223,7 +223,7 @@ class DiffusionPolicy:
 def main():
     # 1. 加载 G1 (同上)
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    menagerie_dir = os.path.join(project_root, "mujoco_menagerie")
+    menagerie_dir = os.path.join(project_root, "dependencies", "mujoco_menagerie")
     g1_dir = os.path.join(menagerie_dir, "unitree_g1")
     
     scene_content = """

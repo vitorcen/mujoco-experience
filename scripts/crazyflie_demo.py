@@ -3,7 +3,7 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 
-MODEL_PATH = './mujoco_menagerie/bitcraze_crazyflie_2/scene.xml'
+MODEL_PATH = './dependencies/mujoco_menagerie/bitcraze_crazyflie_2/scene.xml'
 
 def main():
     print(f"Loading Crazyflie model: {MODEL_PATH}")
@@ -11,7 +11,7 @@ def main():
         model = mujoco.MjModel.from_xml_path(MODEL_PATH)
         data = mujoco.MjData(model)
     except ValueError:
-        print("Error: Model not found. Did you run 'git submodule update --init mujoco_menagerie'?")
+        print("Error: Model not found. Did you run 'git submodule update --init dependencies/mujoco_menagerie'?")
         return
 
     # Crazyflie 有 4 个旋翼电机

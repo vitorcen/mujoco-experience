@@ -168,7 +168,7 @@ class PI05Controller:
 
 
 def load_scene_with_vfs(xml_path):
-    arm_dir = os.path.join(_PROJECT_ROOT, "mujoco_menagerie", "trs_so_arm100")
+    arm_dir = os.path.join(_PROJECT_ROOT, "dependencies", "mujoco_menagerie", "trs_so_arm100")
     with open(os.path.join(_PROJECT_ROOT, xml_path)) as f:
         xml = f.read()
     xml = re.sub(r'<include\s+file="[^"]+so_arm100\.xml"\s*/>',

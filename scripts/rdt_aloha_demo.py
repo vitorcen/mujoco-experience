@@ -121,7 +121,7 @@ class RDTController:
 
 
 def load_scene_with_vfs(xml_path):
-    aloha_dir = os.path.join(_PROJECT_ROOT, "mujoco_menagerie", "aloha")
+    aloha_dir = os.path.join(_PROJECT_ROOT, "dependencies", "mujoco_menagerie", "aloha")
     with open(os.path.join(_PROJECT_ROOT, xml_path)) as f:
         scene_xml = f.read()
     assets = {"aloha.xml": open(os.path.join(aloha_dir, "aloha.xml"), "rb").read()}

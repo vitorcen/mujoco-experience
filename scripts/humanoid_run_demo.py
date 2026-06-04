@@ -22,7 +22,7 @@ def main():
     
     # 路径
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    dm_dir = os.path.join(project_root, "DeepMimic_mujoco", "src", "mujoco")
+    dm_dir = os.path.join(project_root, "dependencies", "DeepMimic_mujoco", "src", "mujoco")
     
     # 1. 准备 XML
     xml_path = os.path.join(dm_dir, "humanoid_deepmimic", "envs", "asset", "dp_env_v2.xml")

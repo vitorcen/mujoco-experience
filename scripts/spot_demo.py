@@ -4,7 +4,7 @@ import mujoco.viewer
 import numpy as np
 
 # 模型路径
-MODEL_PATH = './mujoco_menagerie/boston_dynamics_spot/scene.xml'
+MODEL_PATH = './dependencies/mujoco_menagerie/boston_dynamics_spot/scene.xml'
 
 def main():
     print(f"Loading Spot model: {MODEL_PATH}")
@@ -12,7 +12,7 @@ def main():
         model = mujoco.MjModel.from_xml_path(MODEL_PATH)
         data = mujoco.MjData(model)
     except ValueError:
-        print("Error: Model not found. Did you run 'git submodule update --init mujoco_menagerie'?")
+        print("Error: Model not found. Did you run 'git submodule update --init dependencies/mujoco_menagerie'?")
         return
 
     # Spot 通常有 12 个关节电机

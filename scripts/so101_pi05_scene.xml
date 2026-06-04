@@ -4,7 +4,7 @@
        chosen to look like the consumer-grade dataset (bright table, simple background). -->
   <compiler angle="radian" autolimits="true"/>
 
-  <include file="../mujoco_menagerie/trs_so_arm100/so_arm100.xml"/>
+  <include file="../dependencies/mujoco_menagerie/trs_so_arm100/so_arm100.xml"/>
 
   <!-- Viewer opening pose: 3/4 rear-left of arm, framing arm + tabletop + orange cube. -->
   <statistic center="0.02 -0.15 0.08" extent="0.55"/>
